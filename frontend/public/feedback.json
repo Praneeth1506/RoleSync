@@ -1,0 +1,5 @@
+[
+  { "id": 1, "name": "Scanner Service", "message": "No major issues — candidate matches keywords 8/10", "timestamp": 1700000000000 },
+  { "id": 2, "name": "AI Shortlister", "message": "Low confidence on experience parsing: review CV manually", "timestamp": 1700003600000 },
+  { "id": 3, "name": "Formatting Bot", "message": "PDF parsed successfully; extracted 4 pages", "timestamp": 1700007200000 }
+]
