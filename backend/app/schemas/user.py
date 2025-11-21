@@ -1,11 +1,16 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
+from enum import Enum
 
+class UserRole(str, Enum):
+    candidate = "candidate"
+    recruiter = "recruiter"
+    
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
-    role: str  
+    role: UserRole 
     name: Optional[str] = None
 
 class UserInDB(BaseModel):
@@ -24,3 +29,5 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[str] = None
     role: Optional[str] = None
+
+

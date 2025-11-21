@@ -9,7 +9,7 @@ import random
 from bson.objectid import ObjectId
 from dotenv import load_dotenv
 
-from ..schemas.user import UserCreate, Token, TokenData
+from ..schemas.user import UserCreate, Token, TokenData,UserRole
 from ..database.user import (
     create_user_doc,
     get_user_by_email,
@@ -102,9 +102,9 @@ def signup(payload: UserCreate):
     hashed = get_password_hash(payload.password)
 
     user_doc = create_user_doc(
-        payload.email,
-        hashed,
-        payload.role,
+        email=payload.email,
+        hashed_password=hashed,
+        role=payload.role.value,      
         name=payload.name,
         linked_id=None
     )
@@ -113,24 +113,27 @@ def signup(payload: UserCreate):
 
     db.users.update_one(
         {"_id": ObjectId(user_doc["_id"])},
-        {"$set": {
-            "verification_code": verification_code,
-            "is_verified": False
-        }}
+        {
+            "$set": {
+                "verification_code": verification_code,
+                "is_verified": False
+            }
+        }
     )
 
-    if payload.role == "candidate":
+    if payload.role == UserRole.candidate:
         candidate = CandidateDB.find_by_email(payload.email)
         if candidate:
             link_user_to_profile(user_doc["_id"], candidate["_id"])
 
     return {
         "ok": True,
+        "message": "Signup successful. Please verify your email.",
         "user_id": user_doc["_id"],
         "email": user_doc["email"],
         "role": user_doc["role"],
-        "verification_code": verification_code,   
-        "linked": user_doc.get("linked_id")
+        "verification_code": verification_code,   # Temporary (until email OTP sending is added)
+        "linked_profile": user_doc.get("linked_id")
     }
 
 @router.post("/verify")

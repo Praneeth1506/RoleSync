@@ -12,6 +12,5 @@ if not MONGO_URL:
 
 client = MongoClient(MONGO_URL)
 db = client[DB_NAME]
-print(">>> MONGO_URL =", MONGO_URL)
-print(">>> DB_NAME =", DB_NAME)
+
 

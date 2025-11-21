@@ -18,7 +18,7 @@ JobRole: {json.dumps(job_role)}
 Provide JSON: {{"fit_score":0,"strengths":[],"weaknesses":[],"recommendations": []}}
 Score 0-100 and be concise. Return JSON only.
 """
-    model = genai.GenerativeModel("gemini-pro")
+    model = genai.GenerativeModel("gemini-2.5-pro")
     resp = model.generate_content(prompt)
     try:
         return json.loads(resp.text)

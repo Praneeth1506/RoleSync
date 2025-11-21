@@ -1,22 +1,47 @@
-import json, os
-from dotenv import load_dotenv
-import google.generativeai as genai
-from ..database.candidate import CandidateDB
+def answer_recruiter_query(query, history, job_role, candidates):
+    """
+    history = [
+      {"sender": "recruiter", "text": "..."},
+      {"sender": "ai", "text": "..."},
+      ...
+    ]
+    """
 
-load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    history_text = ""
+    for msg in history[-10:]:  # last 10 messages
+        role = "User" if msg["sender"] == "recruiter" else "Assistant"
+        history_text += f"{role}: {msg['text']}\n"
 
-def answer_recruiter_query(query_text, recruiter_context=None, top_candidates=5):
-    candidates = CandidateDB.get_top_n(recruiter_context.get("job_role_id"), n=top_candidates) if recruiter_context else []
+    job_role_txt = json.dumps(job_role or {}, indent=2)
+    cand_txt = json.dumps(candidates, indent=2)
+
     prompt = f"""
-You are RecruiterAssistant. Query: {query_text}
-Context candidates: {json.dumps(candidates)}
-Provide concise answer and list top candidate IDs if asked.
-Return JSON.
-"""
-    model = genai.GenerativeModel("gemini-pro")
-    resp = model.generate_content(prompt)
+    You are an AI recruitment assistant.
+
+    Job Role:
+    {job_role_txt}
+
+    Top Candidates:
+    {cand_txt}
+
+    Conversation History:
+    {history_text}
+
+    New recruiter message:
+    {query}
+
+    Respond helpfully.
+    Return ONLY JSON with:
+    {{
+      "reply": "<your-message-here>",
+      "suggested_actions": []
+    }}
+    """
+
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
     try:
-        return json.loads(resp.text)
-    except Exception:
-        return {"raw": resp.text}
+        response = model.generate_content(prompt)
+        return json.loads(response.text)
+    except:
+        return {"reply": "Could not process query.", "suggested_actions": []}

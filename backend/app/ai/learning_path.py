@@ -58,7 +58,7 @@ Give 2-3 prioritized skills, 2 resources per skill (short title only), 2-3 small
 Return JSON only.
 """
     try:
-        model = genai.GenerativeModel("gemini-pro")
+        model = genai.GenerativeModel("gemini-2.5-pro")
         resp = model.generate_content(prompt)
         out = json.loads(resp.text)
         for k in ("priority", "resources", "projects", "estimated_time_weeks"):
