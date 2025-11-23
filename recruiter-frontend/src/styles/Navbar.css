@@ -1,0 +1,30 @@
+.navbar {
+  background: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.nav-brand { font-size: 1.5rem; font-weight: bold; color: #0056b3; }
+
+.nav-links { display: flex; gap: 1.5rem; }
+
+.nav-link {
+  text-decoration: none;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+  background: #eef5ff;
+  color: #0056b3;
+}
+
+.nav-profile { display: flex; align-items: center; gap: 10px; font-weight: 500; }
