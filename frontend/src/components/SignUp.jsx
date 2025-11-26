@@ -69,23 +69,38 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      // For now, just store the signup data locally
       const signupData = {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        linkedin: formData.linkedin || null,
-        phone: formData.phone || null,
+        linkedin: formData.linkedin || "string",
+        phone: formData.phone || "string",
       };
 
-      // Store in localStorage
-      localStorage.setItem("signupData", JSON.stringify(signupData));
-      
-      alert("Sign up successful! Please sign in with your credentials.");
-      navigate("/signin");
+      // POST to backend signup route
+      const res = await axios.post(
+        "http://127.0.0.1:8000/auth/signup/candidate",
+        signupData,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (res && (res.status === 200 || res.status === 201)) {
+        const data = res.data;
+        // show verification code if returned
+        if (data.verification_code) {
+          alert(`Sign up successful. Verification code: ${data.verification_code}`);
+        } else {
+          alert("Sign up successful! Please sign in with your credentials.");
+        }
+        navigate("/signin");
+      } else {
+        setErrors({ submit: "Unexpected response from server." });
+      }
     } catch (error) {
       console.error("Sign up failed:", error);
-      setErrors({ submit: "Sign up failed. Please try again." });
+      // try to extract server error message
+      const msg = error?.response?.data?.detail || error?.response?.data || error.message;
+      setErrors({ submit: typeof msg === "string" ? msg : JSON.stringify(msg) });
     } finally {
       setLoading(false);
     }

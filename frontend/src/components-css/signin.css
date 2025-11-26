@@ -1,3 +1,28 @@
+/* Simple sign-in card styles */
+.signin-page{
+  min-height: calc(100vh - 80px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 16px;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+.signin-card{
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(2,6,23,0.08);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.signin-card h2{margin:0 0 6px}
+.signin-card label{font-size:13px;color:#374151}
+.signin-card input{padding:10px 12px;border-radius:8px;border:1px solid #e6edf8}
+.btn-primary{background:linear-gradient(90deg,#7c5cff,#5aa3ff);color:white;border:none;padding:10px;border-radius:8px;cursor:pointer}
+.signin-error{color:#b91c1c;background:#fff1f2;padding:10px;border-radius:8px}
 .signin-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);

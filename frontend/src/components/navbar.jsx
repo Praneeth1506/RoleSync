@@ -10,12 +10,17 @@ export default function Navbar({ onAccountClick = () => {} }) {
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const initials = userName
-    .split(" ")
-    .map((s) => s[0] || "")
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials = (() => {
+    if (!userName) return "";
+    // if email, use first char before @
+    if (userName.includes("@")) return userName[0].toUpperCase();
+    return userName
+      .split(" ")
+      .map((s) => s[0] || "")
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  })();
 
   // Fetch user data on component mount
   useEffect(() => {
@@ -25,8 +30,10 @@ export default function Navbar({ onAccountClick = () => {} }) {
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
           const user = JSON.parse(storedUser);
-          if (user && user.name) {
-            setUserName(user.name);
+          if (user) {
+            // prefer name, otherwise use email as display name
+            const display = user.name || user.email || "";
+            setUserName(display);
             setIsSignedIn(true);
             return;
           }
@@ -43,7 +50,30 @@ export default function Navbar({ onAccountClick = () => {} }) {
       }
     };
 
+    // Listen for updates from other components (sidebar save)
+    function onUserUpdated(e) {
+      const u = e?.detail || null;
+      if (u) {
+        const display = u.name || u.email || "";
+        setUserName(display);
+        setIsSignedIn(true);
+      }
+    }
+
+    function onUserLoggedOut() {
+      setUserName("");
+      setIsSignedIn(false);
+    }
+
+    window.addEventListener("user-updated", onUserUpdated);
+    window.addEventListener("user-logged-out", onUserLoggedOut);
+
     checkSignInStatus();
+
+    return () => {
+      window.removeEventListener("user-updated", onUserUpdated);
+      window.removeEventListener("user-logged-out", onUserLoggedOut);
+    };
   }, []);
 
   return (

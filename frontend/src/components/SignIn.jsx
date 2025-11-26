@@ -5,165 +5,102 @@ import "../components-css/signin.css";
 
 export default function SignIn() {
   const navigate = useNavigate();
+  const [form, setForm] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [error, setError] = useState("");
 
-  const handleChange = (e) => {
+  function handleChange(e) {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
-    }
-  };
+    setForm((s) => ({ ...s, [name]: value }));
+  }
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Invalid email format";
-    }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSignIn = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
-
-    if (!validateForm()) {
+    setError("");
+    if (!form.username || !form.password) {
+      setError("Please enter email and password.");
       return;
     }
-
     setLoading(true);
     try {
-      // Check locally stored signup data first
-      const signupDataStr = localStorage.getItem("signupData");
-      const signupData = signupDataStr ? JSON.parse(signupDataStr) : null;
+      const params = new URLSearchParams();
+      params.append("username", form.username);
+      params.append("password", form.password);
 
-      let userData = null;
+      const res = await axios.post(
+        "http://127.0.0.1:8000/auth/login",
+        params.toString(),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+      );
 
-      // Check against locally stored signup
-      if (signupData && signupData.email === formData.email && signupData.password === formData.password) {
-        userData = {
-          name: signupData.name,
-          email: signupData.email,
-          message: "Sign in successful",
-        };
-      }
-      // Check against dummy user
-      else if (
-        formData.email === "user@example.com" &&
-        formData.password === "password123"
-      ) {
-        const response = await axios.post("http://localhost:8000/api/dummy/signin", {
-          email: formData.email,
-          password: formData.password,
-        });
-        userData = response.data;
-      } else {
-        throw new Error("Invalid email or password");
-      }
+      const { access_token, refresh_token } = res.data || {};
+      if (access_token) {
+        localStorage.setItem("accessToken", access_token);
+        if (refresh_token) localStorage.setItem("refreshToken", refresh_token);
+        axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`;
+        // fetch current user info and store for navbar
+        try {
+          const me = await axios.get("http://127.0.0.1:8000/auth/me");
+          const userObj = me.data || {};
+          // normalize to have at least email/name
+          const stored = {
+            name: userObj.name || userObj.email || "",
+            email: userObj.email || form.username,
+            role: userObj.role || "",
+          };
+          localStorage.setItem("user", JSON.stringify(stored));
+              // notify other components (navbar, sidebar) that user info changed
+              try { window.dispatchEvent(new CustomEvent('user-updated', { detail: stored })); } catch (e) {}
+        } catch (err) {
+          // fallback: store email only
+          localStorage.setItem("user", JSON.stringify({ name: form.username, email: form.username }));
+              try { window.dispatchEvent(new CustomEvent('user-updated', { detail: { name: form.username, email: form.username } })); } catch (e) {}
+        }
 
-      if (userData) {
-        // Store user data in localStorage
-        localStorage.setItem("user", JSON.stringify(userData));
-        alert("Sign in successful!");
         navigate("/");
-        window.location.reload(); // Reload to update navbar
+      } else {
+        setError("Login succeeded but no token returned.");
       }
-    } catch (error) {
-      console.error("Sign in failed:", error);
-      const errorMsg = error.message || "Invalid email or password";
-      setErrors({ submit: errorMsg });
+    } catch (err) {
+      console.error(err);
+      const msg = err?.response?.data?.detail || err?.response?.data || err.message;
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="signin-container">
-      <div className="signin-wrapper">
-        <div className="signin-header">
-          <h1>Welcome Back</h1>
-          <p>Sign in to your AI Consortium account</p>
-        </div>
+    <div className="signin-page">
+      <form className="signin-card" onSubmit={handleSubmit}>
+        <h2>Sign In</h2>
 
-        <form onSubmit={handleSignIn} className="signin-form">
-          {/* Email */}
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="your@email.com"
-              className={errors.email ? "error" : ""}
-            />
-            {errors.email && <span className="error-text">{errors.email}</span>}
-          </div>
+        <label>Email</label>
+        <input
+          name="username"
+          type="email"
+          value={form.username}
+          onChange={handleChange}
+          placeholder="you@example.com"
+          required
+        />
 
-          {/* Password */}
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              className={errors.password ? "error" : ""}
-            />
-            {errors.password && (
-              <span className="error-text">{errors.password}</span>
-            )}
-          </div>
+        <label>Password</label>
+        <input
+          name="password"
+          type="password"
+          value={form.password}
+          onChange={handleChange}
+          placeholder="Password"
+          required
+        />
 
-          {/* Submit Error */}
-          {errors.submit && (
-            <div className="error-box">{errors.submit}</div>
-          )}
+        {error && <div className="signin-error">{error}</div>}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="btn-submit"
-            disabled={loading}
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-
-          {/* Sign Up Link */}
-          <div className="signup-link">
-            Don't have an account?{" "}
-            <button
-              type="button"
-              onClick={() => navigate("/signup")}
-              className="link-btn"
-            >
-              Sign Up
-            </button>
-          </div>
-        </form>
-      </div>
+        <button type="submit" disabled={loading} className="btn-primary">
+          {loading ? "Signing in..." : "Sign In"}
+        </button>
+      </form>
     </div>
   );
 }
