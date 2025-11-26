@@ -1,83 +1,80 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from typing import List, Optional
+from ..auth.auth import require_role
 
 from ..ai.self_analysis import run_self_analysis
 from ..ai.batch_processing import process_batch
 from ..ai.duplicate_detector import check_duplicate
 from ..database.candidate import CandidateDB
 from ..database.job_description import JobRoleDB
-from ..ai.resume_parser import extract_text   # <-- Needed for JD upload
+from ..ai.resume_parser import extract_text  
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
-# -----------------------------------------------------------
-# SELF ANALYSIS ENDPOINT
-# -----------------------------------------------------------
+
+from fastapi import APIRouter, UploadFile, File, Form
+from typing import Optional, List
+
+from ..ai.self_analysis import run_self_analysis
+from ..ai.resume_parser import extract_text
+from ..database.candidate import CandidateDB
+
+router = APIRouter(prefix="/api/ai", tags=["ai"])
+
+
 @router.post("/self_analysis")
 async def api_self_analysis(
-    file: UploadFile = File(...),               
-    jd_file: Optional[UploadFile] = File(None), 
-    target_role: Optional[str] = Form(None)
+    jd_file: Optional[UploadFile] = File(None),           # optional JD file
+    target_role: Optional[str] = Form(None),             # optional explicit role name
+    current_user = Depends(require_role("candidate"))     # must be candidate
 ):
-    # ---- Save resume ----
-    resume_path = f"/tmp/{file.filename}"
-    with open(resume_path, "wb") as f:
-        f.write(await file.read())
+    """
+    Candidate self-analysis:
 
-    # ---- Extract JD text safely ----
+    - Uses the candidate's stored resume from profile (CandidateDB, via user_id)
+    - Optionally accepts a JD file (PDF/DOCX)
+    - Optionally accepts a target_role (e.g. "Data Scientist")
+    - If neither JD nor target_role is given → auto-detect role from resume
+    """
+    from ..ai.resume_parser import extract_text
+
     jd_text = None
-    if jd_file and jd_file.filename and jd_file.content_type != "application/octet-stream":
+    if jd_file:
         jd_path = f"/tmp/jd_{jd_file.filename}"
         with open(jd_path, "wb") as f:
             f.write(await jd_file.read())
         jd_text = extract_text(jd_path)
 
-    # ---- Run analysis ----
     res = run_self_analysis(
-        file_path=resume_path,
+        user_id=current_user["_id"],
         jd_text=jd_text,
-        target_role=target_role
+        target_role=target_role,
     )
 
-    parsed = res.get("parsed", {})
-    match_score = res.get("match_score")
-    ats_score = res.get("ats_score")
-    skill_gap = res.get("skill_gap", [])
-    feedback = res.get("feedback", {})
-    learning_path = res.get("learning_path", {})
-    auto_role = res.get("auto_detected_role")
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
 
-    candidate_doc = {
-        "parsed": parsed,
-        "analysis": {
-            "match_score": match_score,
-            "ats_score": ats_score,
-            "skill_gap": skill_gap,
-            "learning_path": learning_path
-        },
-        "auto_detected_role": auto_role,
-        "feedback": feedback
-    }
-
-    saved = CandidateDB.insert_candidate_doc(candidate_doc)
-
+    parsed = res.get("parsed", {}) or {}
     clean_parsed = {k: v for k, v in parsed.items() if k != "raw_text"}
+
+    feedback = res.get("feedback", {}) or {}
 
     return {
         "ok": True,
-        "candidate_id": saved.get("_id"),
-        "auto_detected_role": auto_role,
+        "candidate_id": current_user.get("linked_id"),
+        "auto_detected_role": res.get("auto_detected_role"),
         "parsed": clean_parsed,
-        "ats_score": ats_score,
-        "match_score": match_score,
-        "skill_gap": skill_gap,
+        "ats_score": res.get("ats_score"),
+        "match_score": res.get("match_score"),
+        "skill_gap": res.get("skill_gap", []),
         "feedback": {
             "summary": feedback.get("summary"),
-            "recommendations": feedback.get("recommendations")
+            "recommendations": feedback.get("recommendations", []),
         },
-        "learning_path": learning_path,
-        "timestamp": res.get("timestamp")
+        "learning_path": res.get("learning_path"),
+        "timestamp": res.get("timestamp"),
     }
+
 
 
 # -----------------------------
@@ -127,14 +124,3 @@ async def api_learning_path(
     from ..ai.learning_path import generate_learning_path
     res = generate_learning_path(skill_gaps, candidate_skills, target_role)
     return {"ok": True, "learning_path": res}
-
-
-@router.post("/recruiter_query")
-async def api_recruiter_query(
-    query: str = Form(...),
-    job_role_id: Optional[str] = Form(None)
-):
-    from ..ai.recruiter_assistant import answer_recruiter_query
-    context = {"job_role_id": job_role_id} if job_role_id else {}
-    res = answer_recruiter_query(query, recruiter_context=context)
-    return {"ok": True, "answer": res}

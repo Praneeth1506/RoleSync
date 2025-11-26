@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../components-css/acc.css";
 import { ResumeContext } from "./ResumeProvider";
 
-export default function AccountSidebar({ open = false, onClose = () => {}, user = {} }) {
+export default function AccountSidebar({ open = false, onClose = () => { }, user = {} }) {
   const {
     name = "Unknown",
     email: userEmail = "-",
@@ -21,10 +21,10 @@ export default function AccountSidebar({ open = false, onClose = () => {}, user 
 
   const formattedDate = joined_at
     ? new Date(joined_at).toLocaleDateString("en-IN", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    })
     : "-";
 
   const initials = name

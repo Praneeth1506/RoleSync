@@ -7,6 +7,28 @@ import datetime
 jobroles_col = db.job_roles
 
 
+# -----------------------------------------------------
+# Helper: Clean duplicate parsed responsibilities
+# -----------------------------------------------------
+def _remove_duplicate_parsed_fields(job_doc: dict):
+    """
+    If top-level and parsed both contain responsibilities,
+    remove parsed.responsibilities from API output.
+    (We never modify DB, only sanitize response.)
+    """
+    if not job_doc:
+        return job_doc
+
+    parsed = job_doc.get("parsed")
+    top_resp = job_doc.get("responsibilities")
+
+    if parsed and top_resp and parsed.get("responsibilities"):
+        # Remove duplicate to prevent duplication in API output
+        parsed.pop("responsibilities", None)
+
+    return job_doc
+
+
 class JobRoleDB:
 
     # -----------------------------------------------------
@@ -30,8 +52,14 @@ class JobRoleDB:
             doc = jobroles_col.find_one({"_id": ObjectId(job_role_id)})
             if not doc:
                 return None
+
             doc["_id"] = str(doc["_id"])
+
+            # 🔥 FIX DUPLICATE RESPONSIBILITIES
+            doc = _remove_duplicate_parsed_fields(doc)
+
             return doc
+
         except:
             return None
 
@@ -42,9 +70,15 @@ class JobRoleDB:
     def find_by_recruiter(recruiter_id: str):
         cur = jobroles_col.find({"recruiter_id": recruiter_id})
         roles = []
+
         for r in cur:
             r["_id"] = str(r["_id"])
+
+            # 🔥 FIX DUPLICATE RESPONSIBILITIES
+            r = _remove_duplicate_parsed_fields(r)
+
             roles.append(r)
+
         return roles
 
     # -----------------------------------------------------
@@ -73,13 +107,19 @@ class JobRoleDB:
                 "preferred_skills": 1,
                 "experience_min": 1,
                 "experience_max": 1,
-                "keywords": 1
+                "keywords": 1,
+                "parsed": 1,
+                "responsibilities": 1
             }
         )
         if not job:
             return None
 
         job["_id"] = str(job["_id"])
+
+        # 🔥 FIX DUPLICATE RESPONSIBILITIES
+        job = _remove_duplicate_parsed_fields(job)
+
         return job
 
     @staticmethod
@@ -119,4 +159,3 @@ class JobRoleDB:
         )
 
         return sorted_list
-

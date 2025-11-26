@@ -1,38 +1,53 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
-
+# app/routers/invite_router.py
+from fastapi import APIRouter, Depends, Form, HTTPException
+from ..auth.auth import require_role, get_current_user
 from ..database.invite import InviteDB
 from ..database.candidate import CandidateDB
 
 router = APIRouter(prefix="/invite", tags=["invite"])
 
-@router.get("/{token}")
-def verify_invite(token: str):
-    invite = InviteDB.get_by_token(token)
-    if not invite:
-        raise HTTPException(status_code=400, detail="Invalid or expired invite link")
+
+@router.post("/send")
+def send_invite(
+    email: str = Form(...),
+    candidate_id: str = Form(...),
+    job_role_id: str = Form(...),
+    current_user=Depends(require_role("recruiter"))
+):
+    """
+    Recruiter sends invite to a candidate who is NOT registered.
+    """
+    # Must be a valid temporary candidate profile
+    candidate = CandidateDB.get(candidate_id)
+    if not candidate:
+        raise HTTPException(404, "Candidate not found")
+
+    inv = InviteDB.create_invite(
+        email=email,
+        candidate_temp_id=candidate_id,
+        recruiter_id=current_user["_id"],
+        job_role_id=job_role_id
+    )
+
+    invite_link = f"https://your-frontend.com/signup?invite={inv['token']}"
 
     return {
         "ok": True,
-        "email": invite["email"],
-        "candidate_temp_id": str(invite["candidate_temp_id"]),
-        "job_role_id": invite["job_role_id"],
-        "message": "Valid invite. Prompt user to create an account."
+        "invite_link": invite_link,
+        "token": inv["token"]
     }
 
 
-@router.post("/activate/{token}")
-def activate_invite(token: str, user_id: str):
+@router.get("/info/{token}")
+def get_invite_info(token: str):
     """
-    Call after candidate signs up.
-    Auto-link their resume & clear invite.
+    Frontend calls this to display invite details before signup.
     """
-    invite = InviteDB.get_by_token(token)
-    if not invite:
-        raise HTTPException(status_code=400, detail="Invalid or expired invite")
+    inv = InviteDB.get_by_token(token)
+    if not inv:
+        raise HTTPException(404, "Invalid invite token")
 
-    CandidateDB.link_resume_to_user(invite["candidate_temp_id"], user_id)
+    if inv.get("is_used"):
+        raise HTTPException(400, "This invite has already been used")
 
-    InviteDB.mark_used(token)
-
-    return {"ok": True, "message": "Invite activated and resume linked successfully"}
+    return {"ok": True, "invite": inv}

@@ -1,26 +1,64 @@
+# app/ai/semantic_fit.py
 import json
-import os
-from dotenv import load_dotenv
+import datetime
 import google.generativeai as genai
-load_dotenv()
+import os
+
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+MODEL = "gemini-2.5-pro"
+
+
+def _json_safe(obj):
+    """Convert datetime & other non-serializable types."""
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+
+    if isinstance(obj, list):
+        return [_json_safe(x) for x in obj]
+
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+
+    return obj
+
+
 def explain_semantic_fit(candidate, job_role):
-    """
-    candidate: parsed candidate dict
-    job_role: parsed job role dict
-    Returns JSON with strengths, weaknesses and fit_score (0-100)
-    """
+    candidate_json = json.dumps(_json_safe(candidate), indent=2)
+    job_json = json.dumps(_json_safe(job_role), indent=2)
+
     prompt = f"""
-You are an expert hiring advisor. Compare candidate and job role.
-Candidate: {json.dumps(candidate)}
-JobRole: {json.dumps(job_role)}
-Provide JSON: {{"fit_score":0,"strengths":[],"weaknesses":[],"recommendations": []}}
-Score 0-100 and be concise. Return JSON only.
+You are an expert hiring evaluator.
+
+Provide a semantic explanation of candidate-to-job fit.
+
+Candidate:
+{candidate_json}
+
+Job Role:
+{job_json}
+
+Return STRICT JSON ONLY:
+{{
+  "fit_summary": "2–3 sentences only",
+  "strengths": [],
+  "weaknesses": [],
+  "reasoning_score": 0
+}}
 """
-    model = genai.GenerativeModel("gemini-2.5-pro")
-    resp = model.generate_content(prompt)
+
     try:
-        return json.loads(resp.text)
-    except Exception:
-        return {"raw": resp.text}
+        model = genai.GenerativeModel(MODEL)
+        resp = model.generate_content(prompt)
+        txt = resp.text.strip()
+
+        s, e = txt.find("{"), txt.rfind("}")
+        return json.loads(txt[s:e+1])
+
+    except Exception as e:
+        return {
+            "fit_summary": "Semantic analysis failed.",
+            "strengths": [],
+            "weaknesses": [str(e)],
+            "reasoning_score": 0
+        }

@@ -1,33 +1,79 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
-import os
-from dotenv import load_dotenv
+# app/routers/upload_router.py
 
-from ..auth.auth import require_role
-from ..ai.resume_parser import parse_resume
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from datetime import datetime
+import os
+
+from ..auth.auth import require_role, get_current_user
 from ..database.candidate import CandidateDB
-from ..database.user import get_user_by_email
-from ..database.invite import InviteDB
+from ..database.recruiter import RecruiterDB
+from ..ai.resume_parser import parse_resume
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
-load_dotenv()
 
-
-@router.post("/resume")
-async def upload_resume(
+# -------------------------------------------------------------
+# 1️⃣ CANDIDATE — Upload Resume (profile resume upload)
+# -------------------------------------------------------------
+@router.post("/profile/upload_resume")
+async def candidate_upload_resume(
     file: UploadFile = File(...),
-    job_role_id: str = Form(...),
+    current_user=Depends(require_role("candidate"))
+):
+    """
+    Candidate uploads OR updates resume in their profile.
+    Saves parsed resume fields inside CandidateDB.
+    """
+
+    candidate_id = current_user.get("linked_id")
+    if not candidate_id:
+        raise HTTPException(status_code=400, detail="Candidate profile not linked to user.")
+
+    # Save temp file
+    temp_path = f"/tmp/{current_user['_id']}_{file.filename}"
+    with open(temp_path, "wb") as f:
+        f.write(await file.read())
+
+    # Parse resume
+    parsed = parse_resume(temp_path)
+
+    # Cleanup
+    try:
+        os.remove(temp_path)
+    except:
+        pass
+
+    if "error" in parsed:
+        raise HTTPException(status_code=400, detail="Resume parsing failed.")
+
+    # Update candidate DB
+    CandidateDB.update_parsed_resume(candidate_id, parsed)
+
+    return {
+        "ok": True,
+        "message": "Resume uploaded successfully.",
+        "parsed": parsed
+    }
+
+
+# -------------------------------------------------------------
+# 2️⃣ RECRUITER — Upload Resume to THEIR profile (optional)
+# -------------------------------------------------------------
+@router.post("/recruiter/upload_resume")
+async def recruiter_upload_resume(
+    file: UploadFile = File(...),
     current_user=Depends(require_role("recruiter"))
 ):
     """
-    Recruiter uploads a resume:
-    1. Parse resume (PDF/DOCX)
-    2. Save candidate temp entry
-    3. Generate invite link ONLY if candidate has no account
+    Recruiter uploads their own resume (optional).
+    Not used for matching or shortlisting. Stored in recruiter profile.
     """
 
-    temp_path = f"/tmp/{file.filename}"
+    recruiter_id = current_user.get("linked_id")
+    if not recruiter_id:
+        raise HTTPException(status_code=400, detail="Recruiter profile not linked to user.")
 
+    temp_path = f"/tmp/{current_user['_id']}_{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 
@@ -39,47 +85,33 @@ async def upload_resume(
         pass
 
     if "error" in parsed:
-        raise HTTPException(status_code=400, detail="Resume parsing failed")
+        raise HTTPException(status_code=400, detail="Resume parsing failed.")
 
-    email = parsed.get("email")
-    if not email:
-        raise HTTPException(status_code=400, detail="Resume has no email. Cannot proceed.")
-
-    candidate_doc = CandidateDB.insert_candidate_doc({
-        "email": email,
-        "name": parsed.get("name"),
-        "skills": parsed.get("skills"),
-        "projects": parsed.get("projects"),
-        "parsed_text": parsed.get("parsed_text", ""),
-        "experience_years": parsed.get("experience_years", 0),
-        "analysis": [],
-        "linked_user_id": None    
-    })
-
-    existing_user = get_user_by_email(email)
-
-    if existing_user:
-        CandidateDB.link_resume_to_user(candidate_doc["_id"], existing_user["_id"])
-
-        return {
-            "ok": True,
-            "candidate_id": candidate_doc["_id"],
-            "message": "Resume uploaded and linked to existing candidate account.",
-            "invite_needed": False
-        }
-
-    invite = InviteDB.create_invite(
-        candidate_temp_id=candidate_doc["_id"],
-        email=email,
-        job_role_id=job_role_id
-    )
-
-    invite_link = f"https://rolesync.com/invite/{invite['token']}"
+    RecruiterDB.update_resume(recruiter_id, parsed)
 
     return {
         "ok": True,
-        "candidate_id": candidate_doc["_id"],
-        "invite_needed": True,
-        "invite_link": invite_link,
-        "message": "Candidate does not have an account. Share invite link with them."
+        "message": "Recruiter resume uploaded.",
+        "parsed": parsed
+    }
+
+
+# -------------------------------------------------------------
+# 3️⃣ GENERIC TEMP UPLOAD (optional helper endpoint)
+# -------------------------------------------------------------
+@router.post("/temp")
+async def upload_temp_file(file: UploadFile = File(...), current_user=Depends(get_current_user)):
+    """
+    Generic uploader — not stored in DB.
+    Useful for recruiter chat where file > AI.
+    """
+
+    temp_path = f"/tmp/{current_user['_id']}_{file.filename}"
+    with open(temp_path, "wb") as f:
+        f.write(await file.read())
+
+    return {
+        "ok": True,
+        "file_path": temp_path,
+        "message": "File uploaded temporarily."
     }

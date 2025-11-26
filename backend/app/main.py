@@ -1,19 +1,25 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers.ai_router import router as ai_router
-from app.auth.auth import router as auth_router
-from app.routers.jobrole_router import router as jobrole_router
-from app.routers.match_router import router as match_router
-from app.routers.upload_router import router as upload_router
-from app.routers.invite_router import router as invite_router
-from app.routers.recruiter_chat_router import router as recruiter_chat_router
-from app.routers.dummy_router import router as dummy_router
-
 import uvicorn
 
-app = FastAPI(title="RoleSync AI Backend")
+from .routers import (
+    ai_router,
+    upload_router,
+    jobrole_router,
+    match_router,
+    recruiter_chat_router,
+    invite_router,
+    profile_router,
+    interview_router,
+    feedback_router,
+    recruiter_router,
+    candidate_router,
+    feedback_router,
+)
+from .auth import auth
 
-# Add CORS middleware
+app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,17 +28,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(ai_router)
-app.include_router(jobrole_router)
-app.include_router(match_router)
-app.include_router(upload_router)
-app.include_router(invite_router)
-app.include_router(recruiter_chat_router)
-app.include_router(dummy_router)
+
+app.include_router(auth.router)
+app.include_router(ai_router.router)
+app.include_router(upload_router.router)
+app.include_router(jobrole_router.router)
+app.include_router(match_router.router)
+app.include_router(recruiter_chat_router.router)
+app.include_router(invite_router.router)
+app.include_router(profile_router.router)
+app.include_router(interview_router.router)
+app.include_router(recruiter_router.router)
+app.include_router(candidate_router.router)
+app.include_router(feedback_router.router)
+
+
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-
 
