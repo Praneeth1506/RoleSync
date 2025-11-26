@@ -7,7 +7,9 @@ import Home from "./components/Home";
 import AccountSidebar from "./components/AccountSidebar";
 import Chatbot from "./components/Chatbot";
 import { ResumeProvider } from "./components/ResumeProvider";
-
+import Selfan from "./components/selfanalysis";
+import SignUp from "./components/SignUp";
+import SignIn from "./components/SignIn";
 function AppContent() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -33,6 +35,9 @@ function AppContent() {
         <Route path="/upload" element={<FileUpload />} />
         <Route path="/feedback" element={<Feedback />} />
         <Route path="/cht" element={<Chatbot />} />
+        <Route path="/self" element={<Selfan />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/signin" element={<SignIn />} />
       </Routes>
     </>
   );

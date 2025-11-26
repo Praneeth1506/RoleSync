@@ -118,6 +118,33 @@
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
+  transition: opacity 200ms ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.nav-auth-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 /* Avatar click target EXACT size – prevents overlap */
@@ -143,6 +170,14 @@
   color: #e2e8f0;
   font-weight: 700;
   font-size: 15px;
+}
+
+/* User name display */
+.user-name {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 0 8px;
 }
 
 /* ========================================================= */
