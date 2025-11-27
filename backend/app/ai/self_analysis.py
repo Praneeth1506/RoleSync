@@ -1,4 +1,3 @@
-# app/ai/self_analysis.py
 import json
 import google.generativeai as genai
 from datetime import datetime
@@ -14,9 +13,6 @@ from ..database.candidate import CandidateDB
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# -----------------------------------------------------------
-# Predefined Job Role Skill Map
-# -----------------------------------------------------------
 ROLE_SKILL_MAP = {
     "data analyst": {
         "required": ["SQL", "Excel", "Python", "Pandas", "Data Cleaning", "Data Visualization"],
@@ -80,10 +76,6 @@ ROLE_SKILL_MAP = {
     }
 }
 
-
-# -----------------------------------------------------------
-# Extract skills from raw JD file using LLM
-# -----------------------------------------------------------
 def extract_skills_from_jd(jd_text: str):
     prompt = f"""
     You are an ATS and HR skill extraction engine.
@@ -120,10 +112,6 @@ def extract_skills_from_jd(jd_text: str):
             "preferred_skills": ["TensorFlow", "PyTorch", "Statistics", "Data Visualization"]
         }
 
-
-# -----------------------------------------------------------
-# Extract skills from role name
-# -----------------------------------------------------------
 def extract_skills_from_role(role_name: str):
     role_name = role_name.lower().strip()
 
@@ -163,10 +151,6 @@ def extract_skills_from_role(role_name: str):
             "preferred_skills": ["TensorFlow", "PyTorch", "Deep Learning"]
         }
 
-
-# -----------------------------------------------------------
-# Auto-detect role from resume text  ✅ FIXED
-# -----------------------------------------------------------
 def auto_detect_role(resume_text: str):
     prompt = f"""
     Based on this resume text, identify the most suitable job role (2–4 words max):
@@ -184,21 +168,7 @@ def auto_detect_role(resume_text: str):
         return "General Profile"
 
 
-# -----------------------------------------------------------
-# MAIN SELF-ANALYSIS LOGIC (uses candidate profile, not files)
-# -----------------------------------------------------------
 def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None):
-    """
-    Self-analysis pipeline:
-
-    - Fetch candidate profile using user_id
-    - Use stored parsed resume text + skills
-    - Skill source priority:
-        1) JD file text (jd_text)
-        2) Explicit target_role
-        3) Auto-detected from resume
-    """
-
     candidate = CandidateDB.find_by_user_id(user_id)
     if not candidate:
         return {"error": "Candidate profile not found. Please complete signup."}
@@ -220,7 +190,6 @@ def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None
 
     candidate_skills = parsed.get("skills", [])
 
-    # Determine skill source: JD > target_role > auto-detect
     if jd_text:
         skill_info = extract_skills_from_jd(jd_text)
         detected_role = target_role or auto_detect_role(resume_text)
@@ -235,7 +204,27 @@ def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None
     preferred = skill_info.get("preferred_skills", [])
 
     ats_score = compute_ats_score(resume_text, required)
-    match_score = compute_match_score(candidate_skills, required, preferred)
+    candidate_obj = {
+        "skills": candidate_skills,
+        "projects": parsed.get("projects", []),
+        "experience_years": parsed.get("experience_years", 0),
+        "parsed_text": parsed.get("raw_text", ""),
+    }
+
+    job_role_obj = {
+        "title": detected_role,
+        "required_skills": required,
+        "preferred_skills": preferred,
+        "responsibilities": [],      
+        "experience_level": None,    
+        "parsed": {
+            "raw_text": jd_text or ""   
+        }
+    }
+
+    match_result = compute_match_score(candidate_obj, job_role_obj)
+    match_score = match_result["score"]
+
     skill_gap = get_skill_gap(candidate_skills, required)
 
     try:

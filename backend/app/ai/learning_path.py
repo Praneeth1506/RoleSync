@@ -16,7 +16,6 @@ CURATED_RESOURCES = {
 }
 
 def _fallback_learning_path(skill_gaps, candidate_skills, target_role):
-    """Local simple planner using curated resources."""
     priority = skill_gaps[:5]
     resources = {}
     for s in priority:
@@ -31,11 +30,6 @@ def _fallback_learning_path(skill_gaps, candidate_skills, target_role):
     }
 
 def generate_learning_path(skill_gaps, candidate_skills, target_role=None, use_llm=True):
-    """
-    Returns a learning path dictionary.
-    - Attempts to use Gemini for a richer plan when use_llm True.
-    - Falls back to curated local plan on failure.
-    """
     if not skill_gaps:
         return {"priority": [], "resources": {}, "projects": [], "estimated_time_weeks": 0}
 

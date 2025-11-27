@@ -1,4 +1,3 @@
-# app/ai/recruiter_assistant.py
 import json
 import os
 from dotenv import load_dotenv
@@ -26,9 +25,8 @@ def answer_recruiter_query(query, history, job_role, candidates):
         }
     """
 
-    # Build text history
     history_text = ""
-    for msg in history[-10:]:  # last 10 messages only
+    for msg in history[-10:]:
         role = "Recruiter" if msg.get("sender") == "recruiter" else "Assistant"
         history_text += f"{role}: {msg.get('text', '')}\n"
 
@@ -73,11 +71,9 @@ Return ONLY valid JSON in this exact format:
         response = model.generate_content(prompt)
         text = response.text.strip()
 
-        # Try to parse JSON directly
         if text.startswith("{"):
             return json.loads(text)
 
-        # Try extract JSON substring
         start, end = text.find("{"), text.rfind("}")
         if start != -1 and end != -1:
             return json.loads(text[start : end + 1])

@@ -9,9 +9,6 @@ from typing import Dict
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# -------------------------
-#  TEXT EXTRACTION
-# -------------------------
 def extract_text_from_pdf(file_path: str) -> str:
     text = ""
     try:
@@ -19,7 +16,6 @@ def extract_text_from_pdf(file_path: str) -> str:
         for page in doc:
             text += page.get_text("text")
     except Exception as e:
-        # don't crash the server on extraction errors
         print("PDF extraction error:", e)
     return text
 
@@ -45,14 +41,7 @@ def extract_text(file_path: str) -> str:
         raise ValueError("Unsupported file format. Only PDF and DOCX allowed.")
 
 
-# -------------------------
-#  AI PARSER
-# -------------------------
 def parse_resume_with_ai(text: str) -> Dict:
-    """
-    Use the LLM to parse resume text into strict JSON.
-    If LLM fails, return a safe fallback.
-    """
     prompt = f"""
 You are a resume parsing assistant. Convert the following resume text into STRICT JSON with EXACT fields:
 
@@ -84,7 +73,6 @@ Resume Text:
     try:
         response = model.generate_content(prompt)
         output = ""
-        # many genai shapes — try robust extraction
         if hasattr(response, "text") and response.text:
             output = response.text.strip()
         elif hasattr(response, "candidates") and response.candidates:
@@ -94,14 +82,12 @@ Resume Text:
         if output.startswith("{"):
             parsed = json.loads(output)
             parsed["raw_text"] = text
-            # ensure types
             parsed.setdefault("skills", [])
             parsed.setdefault("education", [])
             parsed.setdefault("projects", [])
             parsed.setdefault("experience_years", 0)
             return parsed
 
-        # try substring extraction
         start = output.find("{")
         end = output.rfind("}")
         if start != -1 and end != -1:
@@ -116,7 +102,6 @@ Resume Text:
     except Exception as e:
         print("LLM Parsing Error:", e)
 
-    # Safe fallback
     return {
         "name": "",
         "email": "",

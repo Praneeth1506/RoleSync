@@ -1,8 +1,8 @@
-# app/routers/jobrole_router.py
-
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from typing import Optional, List
+from pydantic import BaseModel
 import os
+import tempfile
 
 from ..auth.auth import require_role, get_current_user
 from ..ai.jd_parser import parse_jd
@@ -12,38 +12,14 @@ from ..database.recruiter import RecruiterDB
 router = APIRouter(prefix="/jobrole", tags=["jobrole"])
 
 
-# -----------------------------------------------------------
-# CREATE JOB ROLE
-# -----------------------------------------------------------
 @router.post("/create")
 async def create_jobrole(
-    title: str = Form(...),                          # Job role name (e.g. "ML Engineer")
-    jd_file: Optional[UploadFile] = File(None),      # Optional JD PDF/DOCX
-    jd_text: Optional[str] = Form(None),             # Optional raw JD text
-    location: Optional[str] = Form(None),            # Optional location
+    title: str = Form(...),
+    jd_file: Optional[UploadFile] = File(None),
+    jd_text: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     current_user = Depends(require_role("recruiter"))
 ):
-    """
-    Create a Job Role.
-
-    Recruiter inputs:
-    - title (required): Name of the role
-    - Either:
-        - jd_file: PDF/DOCX with the JD
-        - jd_text: Plain text JD
-
-    Auto-filled:
-    - recruiter_id: from current_user
-    - company: from RecruiterDB (company_name)
-
-    The JD is parsed using LLM into:
-    - required_skills
-    - preferred_skills
-    - responsibilities
-    - experience_level
-    - seniority
-    - tech_stack
-    """
 
     if not jd_file and not jd_text:
         raise HTTPException(
@@ -51,27 +27,29 @@ async def create_jobrole(
             detail="You must provide either a JD file or JD text."
         )
 
-    # Get recruiter profile for company name
     recruiter_profile = RecruiterDB.get_by_user_id(current_user["_id"])
     company_name = recruiter_profile.get("company_name") if recruiter_profile else None
 
-    # Decide what to send to jd_parser: path or raw text
     jd_input: str
 
     if jd_file:
-        # Save uploaded file to /tmp and pass its path to parser
-        tmp_path = f"/tmp/{jd_file.filename}"
-        with open(tmp_path, "wb") as f:
-            f.write(await jd_file.read())
+        suffix = os.path.splitext(jd_file.filename)[1]
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        tmp_path = tmp.name
+        tmp.write(await jd_file.read())
+        tmp.close()
         jd_input = tmp_path
     else:
-        # Use raw text directly
         jd_input = jd_text
 
-    # Parse JD with LLM
     parsed = parse_jd(jd_input)
 
-    # Build job role document
+    if jd_file:
+        try:
+            os.remove(jd_input)
+        except Exception:
+            pass
+
     job_doc = {
         "title": title,
         "company": company_name,
@@ -81,7 +59,6 @@ async def create_jobrole(
         "preferred_skills": parsed.get("preferred_skills", []),
         "responsibilities": parsed.get("responsibilities", []),
         "tech_stack": parsed.get("tech_stack", []),
-        # you can normalize this to a numeric range later if you want
         "experience_min": parsed.get("experience_level"),
         "parsed": parsed,
     }
@@ -90,25 +67,12 @@ async def create_jobrole(
     return {"ok": True, "job_role": job}
 
 
-# -----------------------------------------------------------
-# PARSE JD ONLY (no DB insert)
-# -----------------------------------------------------------
 @router.post("/parse")
 async def parse_jd_endpoint(
     jd_file: Optional[UploadFile] = File(None),
     jd_text: Optional[str] = Form(None),
     current_user = Depends(require_role("recruiter"))
 ):
-    """
-    Just parse a JD (for preview) without saving a job role.
-
-    Inputs:
-    - jd_file: PDF/DOCX
-    - OR jd_text: plain text
-
-    Returns:
-    - parsed JD structure
-    """
 
     if not jd_file and not jd_text:
         raise HTTPException(
@@ -117,20 +81,26 @@ async def parse_jd_endpoint(
         )
 
     if jd_file:
-        tmp_path = f"/tmp/{jd_file.filename}"
-        with open(tmp_path, "wb") as f:
-            f.write(await jd_file.read())
+        suffix = os.path.splitext(jd_file.filename)[1]
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        tmp_path = tmp.name
+        tmp.write(await jd_file.read())
+        tmp.close()
         jd_input = tmp_path
     else:
         jd_input = jd_text
 
     parsed = parse_jd(jd_input)
+
+    if jd_file:
+        try:
+            os.remove(jd_input)
+        except Exception:
+            pass
+
     return {"ok": True, "parsed": parsed}
 
 
-# -----------------------------------------------------------
-# GET ONE JOB ROLE
-# -----------------------------------------------------------
 @router.get("/get/{job_role_id}")
 def get_jobrole(job_role_id: str, current_user = Depends(get_current_user)):
     job = JobRoleDB.get(job_role_id)
@@ -138,11 +108,6 @@ def get_jobrole(job_role_id: str, current_user = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Job role not found")
     return {"ok": True, "job_role": job}
 
-
-# -----------------------------------------------------------
-# UPDATE JOB ROLE
-# -----------------------------------------------------------
-from pydantic import BaseModel
 
 class JobRoleUpdate(BaseModel):
     title: Optional[str] = None
@@ -152,6 +117,7 @@ class JobRoleUpdate(BaseModel):
     responsibilities: Optional[List[str]] = None
     tech_stack: Optional[List[str]] = None
     experience_min: Optional[str] = None
+
 
 @router.put("/update/{job_role_id}")
 def update_jobrole(
@@ -163,7 +129,6 @@ def update_jobrole(
     if not job:
         raise HTTPException(status_code=404, detail="Job role not found")
 
-    # Optional: ensure this recruiter owns the job role
     if job.get("recruiter_id") != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Not allowed to update this job role")
 
@@ -175,9 +140,6 @@ def update_jobrole(
     return {"ok": True, "job_role": updated}
 
 
-# -----------------------------------------------------------
-# LIST JOB ROLES FOR CURRENT RECRUITER
-# -----------------------------------------------------------
 @router.get("/list")
 def list_jobroles(current_user = Depends(require_role("recruiter"))):
     jobs = JobRoleDB.find_by_recruiter(current_user["_id"])

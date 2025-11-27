@@ -9,12 +9,9 @@ router = APIRouter(prefix="/recruiter", tags=["recruiter"])
 def get_recruiter_profile(current_user = Depends(require_role("recruiter"))):
 
     recruiter = RecruiterDB.get(current_user["_id"])
-    print("CURRENT USER:", current_user)
-
     if not recruiter:
         raise HTTPException(404, "Recruiter profile not found")
 
-    # Convert ObjectId to string
     recruiter["_id"] = str(recruiter["_id"])
 
     return {

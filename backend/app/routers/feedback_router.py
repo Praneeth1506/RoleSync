@@ -1,4 +1,3 @@
-# app/routers/feedback_router.py
 from fastapi import APIRouter, Depends, HTTPException, Form
 from ..auth.auth import require_role
 from ..database.feedback import FeedbackDB
@@ -8,9 +7,6 @@ from ..database.jobrole import JobRoleDB
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
-# -----------------------------------------------------------
-# CREATE DRAFT (AI creates this)
-# -----------------------------------------------------------
 @router.post("/draft")
 def feedback_create_draft(
     candidate_id: str = Form(...),
@@ -27,18 +23,12 @@ def feedback_create_draft(
     return {"ok": True, "draft": draft}
 
 
-# -----------------------------------------------------------
-# LIST PENDING DRAFTS
-# -----------------------------------------------------------
 @router.get("/pending")
 def feedback_list_pending(current_user = Depends(require_role("recruiter"))):
     drafts = FeedbackDB.list_pending(current_user["_id"])
     return {"ok": True, "pending": drafts}
 
 
-# -----------------------------------------------------------
-# EDIT DRAFT
-# -----------------------------------------------------------
 @router.put("/edit/{draft_id}")
 def feedback_edit_draft(
     draft_id: str,
@@ -53,9 +43,6 @@ def feedback_edit_draft(
     return {"ok": True, "draft": updated}
 
 
-# -----------------------------------------------------------
-# APPROVE DRAFT → Moves to final candidate feedback
-# -----------------------------------------------------------
 @router.post("/approve/{draft_id}")
 def feedback_approve(
     draft_id: str,
@@ -67,7 +54,6 @@ def feedback_approve(
 
     FeedbackDB.approve_draft(draft_id)
 
-    # Attach to candidate model
     CandidateDB.add_final_feedback(
         draft["candidate_id"],
         draft["job_role_id"],

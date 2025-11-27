@@ -1,4 +1,3 @@
-# app/routers/invite_router.py
 from fastapi import APIRouter, Depends, Form, HTTPException
 from ..auth.auth import require_role, get_current_user
 from ..database.invite import InviteDB
@@ -14,10 +13,7 @@ def send_invite(
     job_role_id: str = Form(...),
     current_user=Depends(require_role("recruiter"))
 ):
-    """
-    Recruiter sends invite to a candidate who is NOT registered.
-    """
-    # Must be a valid temporary candidate profile
+  
     candidate = CandidateDB.get(candidate_id)
     if not candidate:
         raise HTTPException(404, "Candidate not found")
@@ -40,9 +36,6 @@ def send_invite(
 
 @router.get("/info/{token}")
 def get_invite_info(token: str):
-    """
-    Frontend calls this to display invite details before signup.
-    """
     inv = InviteDB.get_by_token(token)
     if not inv:
         raise HTTPException(404, "Invalid invite token")

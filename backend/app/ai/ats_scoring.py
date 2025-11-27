@@ -1,7 +1,6 @@
 import re
 from collections import Counter
 
-# Common resume action verbs
 ACTION_VERBS = set([
     "achieved","built","designed","developed","implemented","led","managed","created",
     "reduced","improved","optimized","deployed","automated","analyzed","executed",
@@ -15,9 +14,6 @@ SECTION_HEADERS = [
 ]
 
 
-# ---------------------------
-# Normalization Helpers
-# ---------------------------
 def normalize(text):
     return re.sub(r'\s+', ' ', (text or '').strip().lower())
 
@@ -32,14 +28,7 @@ def detect_sections(text):
             found.add(h)
     return found
 
-
-# ---------------------------
-# Keyword Coverage
-# ---------------------------
 def keyword_coverage(text, keywords, synonyms_map=None):
-    """
-    Count presence of JD required skills OR their synonyms in resume text.
-    """
     text_norm = normalize(text)
     count = 0
 
@@ -49,12 +38,10 @@ def keyword_coverage(text, keywords, synonyms_map=None):
 
         k_norm = k.lower().strip()
 
-        # Direct match
         if k_norm in text_norm:
             count += 1
             continue
 
-        # Synonym match
         if synonyms_map and k_norm in synonyms_map:
             alts = synonyms_map[k_norm]
             if any(alt.lower() in text_norm for alt in alts):
@@ -62,37 +49,19 @@ def keyword_coverage(text, keywords, synonyms_map=None):
 
     return count / max(len(keywords), 1)
 
-
-# ---------------------------
-# ATS SCORE MAIN FUNCTION
-# ---------------------------
 def compute_ats_score(resume_text, jd_required_skills, synonyms_map=None):
-    """
-    Components:
-      - section_score (30%)
-      - action_verb_score (20%)
-      - keyword_score (40%)
-      - length_score (10%)
-
-    Returns ATS score as 0–100.
-    """
-
     t = normalize(resume_text)
     words = re.findall(r'\w+', t)
     wc = len(words)
 
-    # ---- Section score ----
     sections = detect_sections(resume_text)
     section_score = min(1.0, len(sections) / 3.0)
 
-    # ---- Action verbs ----
     av_count = count_action_verbs(resume_text)
     action_score = min(1.0, av_count / 4.0)
 
-    # ---- JD Skill keyword coverage ----
     keyword_score = keyword_coverage(resume_text, jd_required_skills, synonyms_map)
 
-    # ---- Resume length scoring ----
     if wc < 80:
         length_score = wc / 80.0
     elif wc > 1200:

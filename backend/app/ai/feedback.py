@@ -12,12 +12,6 @@ logger.setLevel(logging.INFO)
 
 
 def generate_feedback(parsed_resume: dict, jd_obj: dict):
-    """
-    JSON-safe Gemini call.
-    Uses response_mime_type=application/json so output is ALWAYS valid JSON.
-    """
-
-    # Build a proper string prompt
     prompt = (
         "You are an expert recruitment evaluator. "
         "Analyze the candidate resume and job description.\n\n"

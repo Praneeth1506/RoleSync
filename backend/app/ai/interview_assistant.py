@@ -1,4 +1,3 @@
-# app/ai/interview_assistant.py
 import json
 import google.generativeai as genai
 import os
@@ -8,14 +7,6 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 def interview_ai(query, history, role):
-    """
-    history shape:
-    [
-        {"sender": "candidate", "text": "..."},
-        {"sender": "ai", "text": "..."},
-    ]
-    """
-
     history_text = ""
     for msg in history[-12:]:
         role_name = "Candidate" if msg["sender"] == "candidate" else "Assistant"

@@ -83,11 +83,6 @@ JOB_ROLES = {
 }
 
 def detect_job_role(resume_text: str) -> str:
-    """
-    Uses Gemini to detect the most suitable job role
-    from the predefined list of 10 roles.
-    """
-
     roles_list = ", ".join(JOB_ROLES.keys())
 
     prompt = f"""

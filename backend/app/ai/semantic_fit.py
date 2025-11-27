@@ -1,4 +1,3 @@
-# app/ai/semantic_fit.py
 import json
 import datetime
 import google.generativeai as genai
@@ -10,7 +9,6 @@ MODEL = "gemini-2.5-pro"
 
 
 def _json_safe(obj):
-    """Convert datetime & other non-serializable types."""
     if isinstance(obj, datetime.datetime):
         return obj.isoformat()
 

@@ -3,7 +3,7 @@ import json
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-from .resume_parser import extract_text  # your existing PDF/DOCX extractor
+from .resume_parser import extract_text  
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -11,9 +11,6 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL_NAME = "gemini-2.5-flash"
 
 
-# --------------------------------------------------------
-# FALLBACK PARSER (your original untouched)
-# --------------------------------------------------------
 def _fallback_parse(jd_text: str) -> dict:
     lines = [l.strip() for l in jd_text.splitlines() if l.strip()]
 
@@ -60,45 +57,17 @@ def _fallback_parse(jd_text: str) -> dict:
         "raw_text": jd_text,
     }
 
-
-# --------------------------------------------------------
-# NEW: TEXT OR FILE HANDLER
-# --------------------------------------------------------
 def _load_jd_text(source: str) -> str:
-    """
-    Accepts:
-    - file path (PDF/DOCX/TXT)
-    - OR raw JD text
-
-    Returns clean text.
-    """
-
-    # Case 1 — Real file path
     if os.path.exists(source) and os.path.isfile(source):
         return extract_text(source)
 
-    # Case 2 — Looks like file path (pdf/docx) but doesn't exist
     lowered = source.lower()
     if lowered.endswith(".pdf") or lowered.endswith(".docx"):
-        # Try extraction anyway
         return extract_text(source)
 
-    # Case 3 — Raw JD text
     return source
 
-
-# --------------------------------------------------------
-# MAIN PARSER
-# --------------------------------------------------------
 def parse_jd(source: str) -> dict:
-    """
-    Accepts:
-    - file path to PDF/DOCX
-    - OR raw text
-
-    Always returns structured JD JSON.
-    """
-
     jd_text = _load_jd_text(source)
 
     if not jd_text or not jd_text.strip():
@@ -149,18 +118,15 @@ IMPORTANT RULES:
         response = model.generate_content(prompt)
         text = response.text.strip()
 
-        # Try direct JSON load
         try:
             data = json.loads(text)
         except:
-            # Try extracting JSON from within other text
             start = text.find("{")
             end = text.rfind("}")
             if start == -1 or end == -1:
                 raise ValueError("No JSON object found in LLM output")
             data = json.loads(text[start:end + 1])
 
-        # Ensure all required keys exist
         required_keys = [
             "job_title", "role_summary",
             "required_skills", "preferred_skills",

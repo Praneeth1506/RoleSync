@@ -13,18 +13,13 @@ def is_similar_text(a, b, threshold=0.85):
     return SequenceMatcher(None, a, b).ratio() >= threshold
 
 def check_duplicate(file_path, db_check_fn):
-    """
-    db_check_fn(hash) -> maybe existing record with same hash
-    Also does fuzzy check with candidate resume text.
-    Returns dict: {"duplicate":bool, "reason": "hash"|"text", "existing_id":id}
-    """
     h = file_hash(file_path)
     existing = db_check_fn(h)
     if existing:
         return {"duplicate": True, "reason": "hash", "existing_id": existing.get("_id")}
     
     text = extract_text(file_path)
-    text_candidates = db_check_fn(None, return_texts=True)  # implement accordingly
+    text_candidates = db_check_fn(None, return_texts=True)
     for rec in text_candidates:
         if is_similar_text(text, rec.get("text", "")):
             return {"duplicate": True, "reason": "text", "existing_id": rec.get("_id")}

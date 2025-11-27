@@ -1,5 +1,3 @@
-# app/routers/chat_router.py
-
 import os
 import datetime
 import google.generativeai as genai
@@ -14,25 +12,14 @@ from ..database.candidate import CandidateDB
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# Configure Gemini
 if os.getenv("GEMINI_API_KEY"):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-
-# -----------------------------------------------------------
-# Request models
-# -----------------------------------------------------------
 class ChatMessage(BaseModel):
     message: str
 
 @router.get("/list")
 def list_chats(current_user=Depends(require_role("recruiter"))):
-    """
-    Returns ALL chats of the recruiter:
-      - General chat (type = "general")
-      - Contextual shortlisting chats (type = "contextual")
-    """
-
     recruiter_id = current_user["_id"]
     chats = RecruiterChatDB.list_for_user(recruiter_id)
 
@@ -53,7 +40,6 @@ def list_chats(current_user=Depends(require_role("recruiter"))):
             "created_at": c.get("created_at")
         })
 
-    # Sort newest at the top
     formatted.sort(key=lambda x: x.get("updated_at") or x.get("created_at"), reverse=True)
 
     return {
@@ -62,32 +48,18 @@ def list_chats(current_user=Depends(require_role("recruiter"))):
         "chats": formatted
     }
 
-# ===================================================================
-# 🟦 GENERAL ASSISTANT BOT — /chat/general
-# ===================================================================
 @router.post("/general")
 def general_chat(
     body: ChatMessage,
     current_user=Depends(require_role("recruiter"))
 ):
-    """
-    General recruiter assistant — no job context.
-    Supports:
-      - writing job descriptions
-      - hiring strategy
-      - interview questions
-      - platform help
-      - explaining candidate analysis (only if user provides context manually)
-    """
 
     recruiter_id = current_user["_id"]
     msg = body.message.strip()
 
-    # Load or create a global chat for this recruiter
     chat = RecruiterChatDB.get_or_create_global_chat(recruiter_id)
     chat_id = chat["_id"]
 
-    # Store user message
     RecruiterChatDB.add_message(
         chat_id,
         sender=recruiter_id,
@@ -96,7 +68,6 @@ def general_chat(
         metadata={"source": "general"}
     )
 
-    # Prepare model
     history = RecruiterChatDB.format_chat_history(chat_id)
 
     system_prompt = """
@@ -115,7 +86,6 @@ You do NOT talk about job-role context unless provided explicitly by user.
 Be concise, helpful, and professional.
 """
 
-    # Gemini call
     try:
         model = genai.GenerativeModel("gemini-2.5-pro")
         response = model.generate_content(
@@ -125,7 +95,6 @@ Be concise, helpful, and professional.
     except Exception as e:
         answer = f"I'm having trouble responding right now. ({e})"
 
-    # Save bot message
     RecruiterChatDB.add_message(
         chat_id,
         sender="assistant",
@@ -137,33 +106,16 @@ Be concise, helpful, and professional.
     return {"ok": True, "chat_id": chat_id, "response": answer}
 
 
-# ===================================================================
-# 🟧 CONTEXTUAL SHORTLISTING BOT — /chat/contextual/{chat_id}
-# ===================================================================
 @router.post("/contextual/{chat_id}")
 def contextual_chat(
     chat_id: str,
     body: ChatMessage,
     current_user=Depends(require_role("recruiter"))
 ):
-    """
-    Job-role-specific AI assistant.
-    Activated only after shortlist_batch is done.
-
-    The bot understands:
-      - job role details
-      - required and preferred skills
-      - responsibilities
-      - experience expectations
-      - candidate analyses (match score, ATS, semantic)
-      - shortlisted/rejected lists
-      - chat history
-    """
 
     recruiter_id = current_user["_id"]
     msg = body.message.strip()
 
-    # Verify chat exists
     chat = RecruiterChatDB.get(chat_id)
     if not chat:
         raise HTTPException(404, "Chat not found")
@@ -172,15 +124,12 @@ def contextual_chat(
     if not job_role_id:
         raise HTTPException(400, "This chat is not a contextual shortlist chat.")
 
-    # Job role data
     job = JobRoleDB.get(job_role_id)
     if not job:
         raise HTTPException(404, "Job role not found")
 
-    # Load analyses for each candidate
     analyses = CandidateDB.get_analysis_for_job(job_role_id)
 
-    # Store user message
     RecruiterChatDB.add_message(
         chat_id,
         sender=recruiter_id,
@@ -189,10 +138,8 @@ def contextual_chat(
         metadata={"source": "contextual", "job_role_id": job_role_id}
     )
 
-    # Construct context
     history = RecruiterChatDB.format_chat_history(chat_id)
 
-    # Prepare contextual system prompt
     system_prompt = f"""
 You are RoleSync’s CONTEXTUAL SHORTLISTING ASSISTANT.
 
@@ -223,7 +170,6 @@ You MUST NOT:
 Be precise, structured, and recruiter-friendly.
 """
 
-    # Gemini call
     try:
         model = genai.GenerativeModel("gemini-2.5-pro")
         llm_input = system_prompt + "\n\n" + history + f"\nRecruiter: {msg}"
@@ -232,7 +178,6 @@ Be precise, structured, and recruiter-friendly.
     except Exception as e:
         answer = f"I'm having trouble responding contextually right now. ({e})"
 
-    # Save bot message
     RecruiterChatDB.add_message(
         chat_id,
         sender="assistant",
