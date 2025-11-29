@@ -5,12 +5,12 @@ import './App.css';
 
 // Pages
 import Login from './pages/Login.jsx';
-import CreateProfile from './pages/CreateProfile.jsx';
+// REMOVED: import CreateProfile from './pages/CreateProfile.jsx'; <-- No longer needed
 import DashboardLayout from './pages/DashboardLayout.jsx';
 import Assistant from './pages/Assistant.jsx';
 import Shortlist from './pages/Shortlist.jsx';
 import JobDescriptions from './pages/JobDescriptions.jsx';
-import ProfileSettings from './pages/ProfileSettings.jsx'; 
+import ProfileSettings from './pages/ProfileSettings.jsx';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useRecruiter();
@@ -23,8 +23,10 @@ const ProtectedRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Login route now handles both login and registration.
+         We removed the /create-profile route.
+      */}
       <Route path="/" element={<Login />} />
-      <Route path="/create-profile" element={<CreateProfile />} />
       
       {/* Dashboard Routes */}
       <Route path="/dashboard" element={
