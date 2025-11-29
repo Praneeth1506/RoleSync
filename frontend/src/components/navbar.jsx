@@ -91,7 +91,7 @@ export default function Navbar({ onAccountClick = () => {} }) {
     {/* CENTER */}
     <div className="nav-center">
       <nav className={`nav-links ${menuOpen ? "open" : ""}`}>
-        <a href="/">Home</a>
+        <a href="/"></a>
         <a href="/self">Analysis</a>
         <a href="/feedback">Feedback</a>
         <a href="/cht">Interview Prep</a>

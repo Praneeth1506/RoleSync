@@ -1,18 +1,24 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 
 export const ResumeContext = createContext();
 
-export const ResumeProvider = ({ children }) => {
+export function ResumeProvider({ children }) {
   const [resume, setResume] = useState(null);
 
-  const uploadResume = (file) => {
-    if (!file) return;
-    setResume({ file, url: URL.createObjectURL(file) });
-  };
+  useEffect(() => {
+    const saved = localStorage.getItem("resume");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setResume({
+        file: { name: parsed.name },
+        url: parsed.url,
+      });
+    }
+  }, []);
 
   return (
-    <ResumeContext.Provider value={{ resume, uploadResume }}>
+    <ResumeContext.Provider value={{ resume, setResume }}>
       {children}
     </ResumeContext.Provider>
   );
-};
+}

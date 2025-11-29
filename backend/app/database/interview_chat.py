@@ -44,3 +44,6 @@ class InterviewChatDB:
         for c in chats:
             c["_id"] = str(c["_id"])
         return chats
+    @staticmethod
+    def delete(session_id):
+        interview_col.delete_one({"_id": ObjectId(session_id)})
