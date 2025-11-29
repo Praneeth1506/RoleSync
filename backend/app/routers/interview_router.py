@@ -68,3 +68,17 @@ def get_interview_session(
     if not chat:
         raise HTTPException(404, "Session not found")
     return {"ok": True, "chat": chat}
+@router.delete("/{session_id}")
+def delete_interview_session(
+    session_id: str,
+    current_user = Depends(require_role("candidate"))
+):
+    chat = InterviewChatDB.get(session_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+
+    if chat.get("candidate_id") != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this session")
+
+    InterviewChatDB.delete(session_id)
+    return {"ok": True, "message": "Interview session deleted"}
