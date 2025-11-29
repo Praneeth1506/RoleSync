@@ -221,7 +221,7 @@ export default function AccountSidebar({ open = false, onClose = () => {}, user:
 
             <div className="resume-section">
               {!resume?.file ? (
-                <button className="btn primary upload-btn" onClick={() => { onClose(); navigate("/upload"); }}>
+                <button className="btn primary upload-btn" onClick={() => { onClose(); navigate("/"); }}>
                   Upload Resume
                 </button>
               ) : (
