@@ -109,12 +109,20 @@ export default function SignUp() {
   return (
     <div className="signup-container">
       <div className="signup-wrapper">
-        <div className="signup-header">
-          <h1>Create Account</h1>
-          <p>Join AI Consortium and start your journey</p>
+        <div className="signup-left">
+          <div className="brand-block">
+            <h1 className="brand-name">RoleSync</h1>
+            <p className="brand-sub">Career-aware resume & feedback tools</p>
+          </div>
         </div>
 
-        <form onSubmit={handleSignUp} className="signup-form">
+        <div className="signup-right">
+          <div className="signup-header">
+            <h1>Create Account</h1>
+            <p>Join RoleSync and start your journey</p>
+          </div>
+
+          <form onSubmit={handleSignUp} className="signup-form">
           {/* Name */}
           <div className="form-group">
             <label htmlFor="name">Full Name *</label>
@@ -211,13 +219,13 @@ export default function SignUp() {
           )}
 
           {/* Submit Button */}
-          <button
-            type="submit"
-            className="btn-submit"
-            disabled={loading}
-          >
-            {loading ? "Creating Account..." : "Sign Up"}
-          </button>
+            <button
+              type="submit"
+              className="btn-submit"
+              disabled={loading}
+            >
+              {loading ? "Creating Account..." : "Sign Up"}
+            </button>
 
           {/* Sign In Link */}
           <div className="signin-link">
@@ -230,7 +238,8 @@ export default function SignUp() {
               Sign In
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

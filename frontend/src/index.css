@@ -5,7 +5,15 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --page-bg: #242424;
+  /* softer card background to avoid vibrant white */
+  --card-bg: #1b2430;
+  /* theme accents used across components */
+  --navy-1: #001f4d;
+  --navy-2: #003366;
+  --peach: #ff8b5c;
+  --peach-soft: #ffb998;
+  background-color: var(--page-bg);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -28,6 +36,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--page-bg);
 }
 
 h1 {
@@ -56,8 +65,9 @@ button:focus-visible {
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: #0b2540;
+    --page-bg: #f3f7fb; /* pleasant pale blue background for light mode */
+    --card-bg: #fbfbfd; /* soft off-white instead of stark white */
   }
   a:hover {
     color: #747bff;

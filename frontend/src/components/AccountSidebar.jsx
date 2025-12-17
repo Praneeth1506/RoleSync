@@ -162,15 +162,16 @@ export default function AccountSidebar({ open = false, onClose = () => {}, user:
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div className="account-actions">
             {isEditing ? (
               <>
                 <button className="btn ghost" onClick={cancelEdit}>Cancel</button>
-                <button className="btn primary" onClick={saveProfile}>Save Profile</button>
+                <button className="btn primary" onClick={saveProfile}>Save</button>
               </>
             ) : (
-              <button className="btn primary" onClick={() => setIsEditing(true)}>Edit Profile</button>
+              <button className="btn primary" onClick={() => setIsEditing(true)}>Edit</button>
             )}
+
             <button aria-label="Close" onClick={onClose} className="close-btn">✕</button>
           </div>
         </header>
