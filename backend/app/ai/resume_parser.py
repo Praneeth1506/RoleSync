@@ -1,13 +1,9 @@
 import fitz
 import docx
 import json
-import google.generativeai as genai
-from dotenv import load_dotenv
-import os
 from typing import Dict
+from .llm_client import llm_generate
 
-load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 def extract_text_from_pdf(file_path: str) -> str:
     text = ""
@@ -68,36 +64,22 @@ Resume Text:
 {text}
 """
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
     try:
-        response = model.generate_content(prompt)
-        output = ""
-        if hasattr(response, "text") and response.text:
-            output = response.text.strip()
-        elif hasattr(response, "candidates") and response.candidates:
-            first = response.candidates[0]
-            output = getattr(first, "content", getattr(first, "text", str(first))).strip()
+        output = llm_generate(prompt)
 
         if output.startswith("{"):
             parsed = json.loads(output)
-            parsed["raw_text"] = text
-            parsed.setdefault("skills", [])
-            parsed.setdefault("education", [])
-            parsed.setdefault("projects", [])
-            parsed.setdefault("experience_years", 0)
-            return parsed
+        else:
+            start, end = output.find("{"), output.rfind("}")
+            parsed = json.loads(output[start:end + 1])
 
-        start = output.find("{")
-        end = output.rfind("}")
-        if start != -1 and end != -1:
-            parsed = json.loads(output[start:end+1])
-            parsed["raw_text"] = text
-            parsed.setdefault("skills", [])
-            parsed.setdefault("education", [])
-            parsed.setdefault("projects", [])
-            parsed.setdefault("experience_years", 0)
-            return parsed
+        parsed["raw_text"] = text
+        parsed.setdefault("skills", [])
+        parsed.setdefault("education", [])
+        parsed.setdefault("projects", [])
+        parsed.setdefault("experience_years", 0)
+
+        return parsed
 
     except Exception as e:
         print("LLM Parsing Error:", e)

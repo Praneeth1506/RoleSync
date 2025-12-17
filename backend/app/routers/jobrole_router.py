@@ -17,7 +17,6 @@ async def create_jobrole(
     title: str = Form(...),
     jd_file: Optional[UploadFile] = File(None),
     jd_text: Optional[str] = Form(None),
-    location: Optional[str] = Form(None),
     current_user = Depends(require_role("recruiter"))
 ):
 
@@ -120,9 +119,12 @@ class JobRoleUpdate(BaseModel):
 
 
 @router.put("/update/{job_role_id}")
-def update_jobrole(
+async def update_jobrole(
     job_role_id: str,
-    payload: JobRoleUpdate,
+    title: Optional[str] = Form(None),
+    jd_file: Optional[UploadFile] = File(None),
+    jd_text: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     current_user = Depends(require_role("recruiter")),
 ):
     job = JobRoleDB.get(job_role_id)
@@ -132,7 +134,46 @@ def update_jobrole(
     if job.get("recruiter_id") != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Not allowed to update this job role")
 
-    update_data = {k: v for k, v in payload.dict().items() if v is not None}
+    update_data = {}
+
+
+    if title is not None:
+        update_data["title"] = title
+
+    if location is not None:
+        update_data["location"] = location
+
+    if jd_file or jd_text:
+        jd_input = None
+
+        if jd_file:
+            suffix = os.path.splitext(jd_file.filename)[1]
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp_path = tmp.name
+            tmp.write(await jd_file.read())
+            tmp.close()
+            jd_input = tmp_path
+        else:
+            jd_input = jd_text
+
+        parsed = parse_jd(jd_input)
+
+        if jd_file:
+            try:
+                os.remove(jd_input)
+            except Exception:
+                pass
+
+        update_data.update({
+            "required_skills": parsed.get("required_skills", []),
+            "preferred_skills": parsed.get("preferred_skills", []),
+            "responsibilities": parsed.get("responsibilities", []),
+            "tech_stack": parsed.get("tech_stack", []),
+            "experience_min": parsed.get("experience_level"),
+            "parsed": parsed,
+        })
+
+
     if update_data:
         JobRoleDB.update(job_role_id, update_data)
 
@@ -140,7 +181,28 @@ def update_jobrole(
     return {"ok": True, "job_role": updated}
 
 
+
 @router.get("/list")
 def list_jobroles(current_user = Depends(require_role("recruiter"))):
     jobs = JobRoleDB.find_by_recruiter(current_user["_id"])
     return {"ok": True, "job_roles": jobs}
+
+@router.delete("/delete/{job_role_id}")
+def delete_jobrole(
+    job_role_id: str,
+    current_user = Depends(require_role("recruiter")),
+):
+    job = JobRoleDB.get(job_role_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job role not found")
+
+    if job.get("recruiter_id") != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this job role")
+
+    JobRoleDB.delete(job_role_id)
+
+    return {
+        "ok": True,
+        "message": "Job role deleted successfully",
+        "job_role_id": job_role_id
+    }

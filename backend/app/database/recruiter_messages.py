@@ -8,7 +8,7 @@ class RecruiterMessageDB:
     def add_message(chat_id, sender, text):
         doc = {
             "chat_id": chat_id,
-            "sender": sender,  # "recruiter" or "ai"
+            "sender": sender,  
             "text": text,
             "timestamp": datetime.utcnow()
         }
@@ -21,7 +21,7 @@ class RecruiterMessageDB:
               .find({"chat_id": chat_id})
               .sort("timestamp", -1)
               .limit(limit)
-        )[::-1]  # reverse to chronological order
+        )[::-1]  
 
     @staticmethod
     def get_full_chat(chat_id):

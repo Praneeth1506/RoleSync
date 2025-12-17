@@ -8,7 +8,7 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 
 import google.generativeai as genai
 
-from ..auth.auth import require_role, get_current_user
+from ..auth.auth import require_role
 from ..database.candidate import CandidateDB, candidates_col
 from ..database.jobrole import JobRoleDB
 from ..database.invite import InviteDB
@@ -21,6 +21,7 @@ from ..ai.ats_scoring import compute_ats_score
 from ..ai.semantic_fit import explain_semantic_fit
 
 router = APIRouter(prefix="/match", tags=["match"])
+
 
 _GENAI_KEY = os.getenv("GEMINI_API_KEY")
 if _GENAI_KEY:
@@ -48,6 +49,76 @@ def _get_or_create_shortlist_chat(recruiter_id: str, job_role: dict):
     return chat
 
 
+def generate_shortlist_explanation(parsed, job, match_score):
+    if not _GENAI_KEY:
+        return {
+            "summary": f"Candidate matched {match_score}% of job requirements.",
+            "strengths": [],
+            "recommendation": "Good profile for this role."
+        }
+
+    prompt = f"""
+You are a senior technical recruiter.
+
+Explain why this candidate was shortlisted.
+
+Job Title: {job.get('title')}
+Required Skills: {job.get('required_skills')}
+Preferred Skills: {job.get('preferred_skills')}
+Candidate Skills: {parsed.get('skills')}
+Candidate Experience (years): {parsed.get('experience_years')}
+Match Score: {match_score}%
+
+Return STRICT JSON:
+{{
+  "summary": "2–4 line explanation",
+  "strengths": ["skill1", "skill2"],
+  "recommendation": "Explain why the candidate is a good fit"
+}}
+"""
+
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        resp = model.generate_content(prompt)
+        return json.loads(resp.text)
+    except Exception:
+        return {
+            "summary": f"Candidate matched {match_score}% of job requirements.",
+            "strengths": [],
+            "recommendation": "Suitable for this role."
+        }
+
+
+def generate_rejection_feedback(parsed, job, match_score):
+    if not _GENAI_KEY:
+        return "Your profile does not currently meet the role requirements."
+
+    prompt = f"""
+You are a hiring manager.
+
+Write a polite rejection feedback with improvement guidance.
+
+Job Title: {job.get('title')}
+Required Skills: {job.get('required_skills')}
+Preferred Skills: {job.get('preferred_skills')}
+Candidate Skills: {parsed.get('skills')}
+Candidate Experience: {parsed.get('experience_years')} years
+Match Score: {match_score}%
+
+Format:
+- Short rejection sentence
+- Areas to Improve (bullet points)
+Plain text only.
+"""
+
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        resp = model.generate_content(prompt)
+        return resp.text.strip()
+    except Exception:
+        return "We are unable to proceed at this stage. Please improve alignment with job requirements."
+
+
 @router.post("/score_single")
 async def score_single(
     file: UploadFile = File(...),
@@ -56,23 +127,22 @@ async def score_single(
 ):
     job = JobRoleDB.get(job_role_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job role not found")
+        raise HTTPException(404, "Job role not found")
 
     suffix = os.path.splitext(file.filename)[1]
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    tmp_path = tmp.name
     tmp.write(await file.read())
     tmp.close()
 
-    parsed = parse_resume(tmp_path)
+    parsed = parse_resume(tmp.name)
 
     try:
-        os.remove(tmp_path)
-    except Exception:
+        os.remove(tmp.name)
+    except:
         pass
 
     if not parsed.get("email"):
-        raise HTTPException(status_code=400, detail="Resume must include an email address")
+        raise HTTPException(400, "Resume must contain an email")
 
     email = parsed["email"].lower()
 
@@ -85,7 +155,7 @@ async def score_single(
             "name": parsed.get("name"),
             "skills": parsed.get("skills", []),
             "projects": parsed.get("projects", []),
-            "parsed_text": parsed.get("raw_text", "") or parsed.get("parsed_text", ""),
+            "parsed_text": parsed.get("raw_text", ""),
             "experience_years": parsed.get("experience_years", 0),
             "analysis": [],
             "linked_user_id": None
@@ -96,44 +166,23 @@ async def score_single(
     match_score = match_result.get("score", 0)
 
     ats = compute_ats_score(
-        parsed.get("parsed_text") or parsed.get("raw_text", ""),
-        job.get("required_skills", []) or job.get("parsed", {}).get("required_skills", [])
+        parsed.get("parsed_text", ""),
+        job.get("required_skills", [])
     )
 
-    try:
-        semantic = explain_semantic_fit(parsed, job)
-    except Exception:
-        semantic = {
-            "fit_summary": "semantic analysis failed",
-            "strengths": [],
-            "weaknesses": [],
-            "reasoning_score": 0
-        }
+    semantic = explain_semantic_fit(parsed, job)
 
     analysis = {
         "job_role_id": job_role_id,
         "match_score": match_score,
-        "match_components": match_result.get("components"),
-        "match_method": match_result.get("method"),
         "ats_score": ats,
         "semantic": semantic,
-        "skill_gaps": [
-            s for s in (
-                job.get("required_skills") or
-                job.get("parsed", {}).get("required_skills", [])
-            )
-            if s.lower() not in {sk.lower() for sk in (parsed.get("skills") or [])}
-        ],
         "timestamp": datetime.datetime.utcnow()
     }
 
     CandidateDB.add_analysis(candidate_id, job_role_id, analysis)
 
-    return {
-        "ok": True,
-        "candidate_id": candidate_id,
-        "analysis": analysis
-    }
+    return {"ok": True, "candidate_id": candidate_id, "analysis": analysis}
 
 
 @router.post("/shortlist_batch")
@@ -144,11 +193,9 @@ async def shortlist_batch(
 ):
     job = JobRoleDB.get(job_role_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job role not found")
+        raise HTTPException(404, "Job role not found")
 
-    shortlisted = []
-    rejected = []
-    invite_links = []
+    shortlisted, rejected, invite_links = [], [], []
 
     chat = _get_or_create_shortlist_chat(current_user["_id"], job)
     chat_id = chat["_id"]
@@ -156,72 +203,43 @@ async def shortlist_batch(
     for file in files:
         suffix = os.path.splitext(file.filename)[1]
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        tmp_path = tmp.name
         tmp.write(await file.read())
         tmp.close()
 
-        parsed = parse_resume(tmp_path)
-
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
+        parsed = parse_resume(tmp.name)
+        os.remove(tmp.name)
 
         if not parsed.get("email"):
-            rejected.append({
-                "candidate_id": None,
-                "email": None,
-                "name": parsed.get("name"),
-                "match_score": 0,
-                "ats_score": 0,
-                "feedback": "Email not detected in resume. Unable to process candidate."
-            })
             continue
 
         email = parsed["email"].lower()
-
         existing = CandidateDB.find_by_email(email)
-        if existing:
-            candidate_id = existing["_id"]
-        else:
-            new_cand = CandidateDB.insert_candidate_doc({
-                "email": email,
-                "name": parsed.get("name"),
-                "skills": parsed.get("skills", []),
-                "projects": parsed.get("projects", []),
-                "parsed_text": parsed.get("raw_text", "") or parsed.get("parsed_text", ""),
-                "experience_years": parsed.get("experience_years", 0),
-                "analysis": [],
-                "linked_user_id": None
-            })
-            candidate_id = new_cand["_id"]
+        candidate_id = existing["_id"] if existing else CandidateDB.insert_candidate_doc({
+            "email": email,
+            "name": parsed.get("name"),
+            "skills": parsed.get("skills", []),
+            "parsed_text": parsed.get("raw_text", ""),
+            "analysis": [],
+            "linked_user_id": None
+        })["_id"]
 
         match_result = compute_match_score(parsed, job)
         match_score = match_result.get("score", 0)
-
-        ats = compute_ats_score(
-            parsed.get("parsed_text") or parsed.get("raw_text", ""),
-            job.get("required_skills", []) or job.get("parsed", {}).get("required_skills", [])
-        )
-
-        CandidateDB.add_submission(candidate_id, job_role_id, current_user["_id"])
+        ats = compute_ats_score(parsed.get("parsed_text", ""), job.get("required_skills", []))
 
         if match_score >= 45:
+            explanation = generate_shortlist_explanation(parsed, job, match_score)
             shortlisted.append({
                 "candidate_id": candidate_id,
                 "email": email,
                 "name": parsed.get("name"),
                 "match_score": match_score,
-                "ats_score": ats
+                "ats_score": ats,
+                "explanation": explanation
             })
         else:
-            feedback = "We could not progress your application further for this role."
-            FeedbackDB.create_draft(
-                candidate_id=candidate_id,
-                recruiter_id=current_user["_id"],
-                job_role_id=job_role_id,
-                feedback_text=feedback
-            )
+            feedback = generate_rejection_feedback(parsed, job, match_score)
+            FeedbackDB.create_draft(candidate_id, current_user["_id"], job_role_id, feedback)
             rejected.append({
                 "candidate_id": candidate_id,
                 "email": email,

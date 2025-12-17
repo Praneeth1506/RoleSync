@@ -1,22 +1,15 @@
-# app/database/recruiter_chat.py
-
 from .connection import db
 from bson.objectid import ObjectId
 from datetime import datetime
 
-# MAIN COLLECTION (use ONLY this)
 chats_col = db.recruiter_chats
 
 
 class RecruiterChatDB:
-
-    # -----------------------------------------------------
-    # Create Chat (general or contextual)
-    # -----------------------------------------------------
     @staticmethod
     def create_chat(
         creator_user_id: str,
-        chat_type: str = "general",   # "general" or "contextual"
+        chat_type: str = "general",   
         title: str = None,
         job_role_id: str = None,
         candidates=None,
@@ -45,9 +38,7 @@ class RecruiterChatDB:
         doc["_id"] = str(res.inserted_id)
         return doc
 
-    # -----------------------------------------------------
-    # Get one chat
-    # -----------------------------------------------------
+
     @staticmethod
     def get(chat_id: str):
         try:
@@ -61,9 +52,7 @@ class RecruiterChatDB:
         chat["_id"] = str(chat["_id"])
         return chat
 
-    # -----------------------------------------------------
-    # Add message
-    # -----------------------------------------------------
+
     @staticmethod
     def add_message(
         chat_id: str,
@@ -80,7 +69,7 @@ class RecruiterChatDB:
             "message_id": str(ObjectId()),
             "sender": str(sender),
             "sender_role": sender_role,
-            "type": message_type,      # text/file/ai
+            "type": message_type,      
             "text": text,
             "metadata": metadata,
             "timestamp": datetime.utcnow(),
@@ -96,9 +85,6 @@ class RecruiterChatDB:
 
         return msg
 
-    # -----------------------------------------------------
-    # List chats for a recruiter
-    # -----------------------------------------------------
     @staticmethod
     def list_for_user(user_id: str):
         uid = str(user_id)
@@ -113,9 +99,7 @@ class RecruiterChatDB:
             chats.append(c)
         return chats
 
-    # -----------------------------------------------------
-    # General/Homepage Chat (ONLY 1 per recruiter)
-    # -----------------------------------------------------
+
     @staticmethod
     def get_or_create_global_chat(recruiter_id: str):
 
@@ -128,7 +112,6 @@ class RecruiterChatDB:
             chat["_id"] = str(chat["_id"])
             return chat
 
-        # create one general assistant chat
         doc = {
             "chat_type": "general",
             "title": "General Assistant",
@@ -146,9 +129,7 @@ class RecruiterChatDB:
         doc["_id"] = str(res.inserted_id)
         return doc
 
-    # -----------------------------------------------------
-    # Contextual Chat Summary Helper
-    # -----------------------------------------------------
+
     @staticmethod
     def format_chat_history(chat_id: str):
         chat = chats_col.find_one({"_id": ObjectId(chat_id)})

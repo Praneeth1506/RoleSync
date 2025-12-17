@@ -68,6 +68,7 @@ def get_interview_session(
     if not chat:
         raise HTTPException(404, "Session not found")
     return {"ok": True, "chat": chat}
+
 @router.delete("/{session_id}")
 def delete_interview_session(
     session_id: str,

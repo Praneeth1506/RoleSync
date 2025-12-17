@@ -1,5 +1,3 @@
-# app/database/recruiter.py
-
 from .connection import db
 from bson.objectid import ObjectId
 import datetime
@@ -9,9 +7,6 @@ users_col = db.users
 
 
 class RecruiterDB:
-    # ---------------------------------------------------------
-    # 1. Create recruiter profile on signup
-    # ---------------------------------------------------------
     @staticmethod
     def create_recruiter_profile(user_id: str, company_name: str, linkedin: str = None, phone: str = None):
         doc = {
@@ -19,7 +14,7 @@ class RecruiterDB:
             "company_name": company_name,
             "linkedin": linkedin,
             "phone": phone,
-            "resume": {},               # recruiter resume (optional)
+            "resume": {},               
             "created_at": datetime.datetime.utcnow(),
             "updated_at": datetime.datetime.utcnow()
         }
@@ -27,9 +22,7 @@ class RecruiterDB:
         doc["_id"] = str(res.inserted_id)
         return doc
 
-    # ---------------------------------------------------------
-    # 2. Get recruiter profile by user id
-    # ---------------------------------------------------------
+
     @staticmethod
     def get_by_user_id(user_id: str):
         r = recruiter_col.find_one({"user_id": user_id})
@@ -38,25 +31,16 @@ class RecruiterDB:
         r["_id"] = str(r["_id"])
         return r
 
-    # ---------------------------------------------------------
-    # 3. Update recruiter profile fields
-    # ---------------------------------------------------------
+
     @staticmethod
     def update_profile(user_id: str, data: dict):
         data["updated_at"] = datetime.datetime.utcnow()
         recruiter_col.update_one({"user_id": user_id}, {"$set": data})
         return RecruiterDB.get_by_user_id(user_id)
 
-    # ---------------------------------------------------------
-    # 4. Upload or update recruiter resume (parsed output)
-    # ---------------------------------------------------------
+
     @staticmethod
     def update_resume(recruiter_id: str, parsed_data: dict):
-        """
-        Stores parsed recruiter resume fields inside recruiter profile.
-        parsed_data is output of parse_resume().
-        """
-
         recruiter_col.update_one(
             {"_id": ObjectId(recruiter_id)},
             {
@@ -75,9 +59,7 @@ class RecruiterDB:
         )
         return RecruiterDB.get(recruiter_id)
 
-    # ---------------------------------------------------------
-    # 5. Generic getter using recruiter_id
-    # ---------------------------------------------------------
+
     @staticmethod
     def get(recruiter_id: str):
         r = recruiter_col.find_one({"_id": ObjectId(recruiter_id)})
@@ -85,23 +67,5 @@ class RecruiterDB:
             return None
         r["_id"] = str(r["_id"])
         return r
+
     
-
-    @staticmethod
-    def get(recruiter_id: str):
-        try:
-            oid = ObjectId(recruiter_id)
-            r = users_col.find_one({"_id": oid})
-            if r:
-                r["_id"] = str(r["_id"])
-                return r
-        except:
-            pass
-
-        r = users_col.find_one({"_id": recruiter_id})
-        if r:
-            r["_id"] = str(r["_id"])
-            return r
-
-        return None
-

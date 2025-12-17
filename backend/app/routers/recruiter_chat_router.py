@@ -87,7 +87,7 @@ Be concise, helpful, and professional.
 """
 
     try:
-        model = genai.GenerativeModel("gemini-2.5-pro")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(
             system_prompt + "\n\n" + history + f"\nRecruiter: {msg}"
         )
@@ -171,7 +171,7 @@ Be precise, structured, and recruiter-friendly.
 """
 
     try:
-        model = genai.GenerativeModel("gemini-2.5-pro")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         llm_input = system_prompt + "\n\n" + history + f"\nRecruiter: {msg}"
         response = model.generate_content(llm_input)
         answer = response.text.strip()

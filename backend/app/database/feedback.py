@@ -1,4 +1,3 @@
-# app/database/feedback.py
 from .connection import db
 from bson.objectid import ObjectId
 from datetime import datetime
@@ -15,7 +14,7 @@ class FeedbackDB:
             "recruiter_id": recruiter_id,
             "job_role_id": job_role_id,
             "text": feedback_text,
-            "status": "pending",      # pending → approved
+            "status": "pending",      
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }

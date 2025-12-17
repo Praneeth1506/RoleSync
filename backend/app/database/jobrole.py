@@ -1,5 +1,3 @@
-# app/database/jobrole.py
-
 from .connection import db
 from bson.objectid import ObjectId
 import datetime
@@ -7,15 +5,7 @@ import datetime
 jobroles_col = db.job_roles
 
 
-# -----------------------------------------------------
-# Helper: Clean duplicate parsed responsibilities
-# -----------------------------------------------------
 def _remove_duplicate_parsed_fields(job_doc: dict):
-    """
-    If top-level and parsed both contain responsibilities,
-    remove parsed.responsibilities from API output.
-    (We never modify DB, only sanitize response.)
-    """
     if not job_doc:
         return job_doc
 
@@ -23,17 +13,12 @@ def _remove_duplicate_parsed_fields(job_doc: dict):
     top_resp = job_doc.get("responsibilities")
 
     if parsed and top_resp and parsed.get("responsibilities"):
-        # Remove duplicate to prevent duplication in API output
         parsed.pop("responsibilities", None)
 
     return job_doc
 
 
 class JobRoleDB:
-
-    # -----------------------------------------------------
-    # Create a new Job Role
-    # -----------------------------------------------------
     @staticmethod
     def create(doc: dict):
         doc.setdefault("created_at", datetime.datetime.utcnow())
@@ -43,9 +28,7 @@ class JobRoleDB:
         doc["_id"] = str(res.inserted_id)
         return doc
 
-    # -----------------------------------------------------
-    # Get job role by ID
-    # -----------------------------------------------------
+
     @staticmethod
     def get(job_role_id: str):
         try:
@@ -55,7 +38,6 @@ class JobRoleDB:
 
             doc["_id"] = str(doc["_id"])
 
-            # 🔥 FIX DUPLICATE RESPONSIBILITIES
             doc = _remove_duplicate_parsed_fields(doc)
 
             return doc
@@ -63,9 +45,7 @@ class JobRoleDB:
         except:
             return None
 
-    # -----------------------------------------------------
-    # Find all job roles for a recruiter
-    # -----------------------------------------------------
+
     @staticmethod
     def find_by_recruiter(recruiter_id: str):
         cur = jobroles_col.find({"recruiter_id": recruiter_id})
@@ -74,16 +54,13 @@ class JobRoleDB:
         for r in cur:
             r["_id"] = str(r["_id"])
 
-            # 🔥 FIX DUPLICATE RESPONSIBILITIES
             r = _remove_duplicate_parsed_fields(r)
 
             roles.append(r)
 
         return roles
 
-    # -----------------------------------------------------
-    # Update job role
-    # -----------------------------------------------------
+  
     @staticmethod
     def update(job_role_id: str, updates: dict):
         updates["updated_at"] = datetime.datetime.utcnow()
@@ -96,7 +73,6 @@ class JobRoleDB:
     @staticmethod
     def delete(job_role_id: str):
         jobroles_col.delete_one({"_id": ObjectId(job_role_id)})
-        return True
 
     @staticmethod
     def get_matching_info(job_role_id: str):
@@ -117,7 +93,6 @@ class JobRoleDB:
 
         job["_id"] = str(job["_id"])
 
-        # 🔥 FIX DUPLICATE RESPONSIBILITIES
         job = _remove_duplicate_parsed_fields(job)
 
         return job
