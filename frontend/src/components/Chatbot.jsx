@@ -403,8 +403,8 @@ export default function Chatbot() {
     <div className="chatpage-root">
       <aside className="left-col">
         <div className="brand">
-          <div className="logo">AI</div>
-          <div className="title">Consortium Chat</div>
+          
+          <div className="title">Chat</div>
         </div>
 
         <div className="left-actions">
@@ -460,7 +460,7 @@ export default function Chatbot() {
           <div className="conv-info">
             <div className="conv-h-title">{activeConv ? (activeConv.title || activeConv.role || "Conversation") : "Conversation"}</div>
             <div className="conv-h-sub">
-              AI Recruiter — Premium
+              AI Recruiter
               {activeConv && activeConv.role && <span style={{ marginLeft: 12, color: "#6b7280" }}>Role: <strong>{activeConv.role}</strong></span>}
             </div>
           </div>
@@ -530,14 +530,7 @@ export default function Chatbot() {
       </main>
 
       <aside className="right-col">
-        <div className="right-card">
-          <h4>Quick actions</h4>
-          <ul>
-            <li onClick={() => alert("Generate questions")}>Generate interview questions</li>
-            <li onClick={() => alert("Summarize resume")}>Summarize candidate resume</li>
-            <li onClick={() => alert("Create rubric")}>Create screening rubric</li>
-          </ul>
-        </div>
+        
 
         <div className="right-card muted">
           <h4>Tips</h4>

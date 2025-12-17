@@ -11,22 +11,57 @@
 .signup-wrapper {
   background: white;
   border-radius: 12px;
-  padding: 40px;
+  padding: 0; /* inner panels will handle padding */
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
   width: 100%;
-  max-width: 420px;
+  max-width: 920px;
+  display: flex;
+  overflow: hidden;
+}
+
+.signup-left {
+  flex: 1 1 40%;
+  background: #fff8f2; /* soft peach background to make navy brand pop */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+}
+
+.brand-block {
+  text-align: left;
+}
+
+.brand-name {
+  font-size: 48px;
+  margin: 0 0 8px;
+  color: #001f4d; /* navy blue */
+  font-weight: 900;
+}
+
+.brand-sub {
+  margin: 0;
+  color: #ffb199; /* peach text */
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.signup-right {
+  flex: 1 1 60%;
+  background: #ffffff;
+  padding: 40px 48px;
 }
 
 .signup-header {
-  text-align: center;
-  margin-bottom: 32px;
+  text-align: left;
+  margin-bottom: 24px;
 }
 
 .signup-header h1 {
   font-size: 28px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 
 .signup-header p {
@@ -93,15 +128,15 @@
 }
 
 .btn-submit {
-  padding: 11px 16px;
-  background: linear-gradient(90deg, #6366f1, #3b82f6);
+  padding: 12px 16px;
+  background: #ff8b5c; /* solid peach */
   color: white;
   border: none;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
   cursor: pointer;
-  transition: opacity 200ms ease;
+  transition: opacity 160ms ease, transform 120ms ease;
   margin-top: 8px;
 }
 
@@ -135,6 +170,29 @@
 
 .link-btn:hover {
   color: #4f46e5;
+}
+
+@media (max-width: 760px) {
+  .signup-wrapper {
+    flex-direction: column;
+    max-width: 520px;
+  }
+
+  .signup-left,
+  .signup-right {
+    flex: unset;
+    width: 100%;
+    padding: 28px;
+  }
+
+  .brand-name {
+    font-size: 36px;
+    text-align: center;
+  }
+
+  .brand-sub {
+    text-align: center;
+  }
 }
 
 @media (max-width: 480px) {

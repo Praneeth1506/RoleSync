@@ -1,5 +1,42 @@
 [
-  { "id": 1, "name": "Scanner Service", "message": "No major issues — candidate matches keywords 8/10", "timestamp": 1700000000000 },
-  { "id": 2, "name": "AI Shortlister", "message": "Low confidence on experience parsing: review CV manually", "timestamp": 1700003600000 },
-  { "id": 3, "name": "Formatting Bot", "message": "PDF parsed successfully; extracted 4 pages", "timestamp": 1700007200000 }
+  {
+    "id": "rs-001",
+    "company": "RoleSync Technologies",
+    "position": "Frontend Developer",
+    "status": "Shortlisted",
+    "timestamp": "2025-11-28T10:15:00Z",
+    "message": "Congratulations — your resume stands out for our Frontend Developer role. We've shortlisted you for a first-round technical interview. Expect an email with time slots and a short coding task.",
+    "score": 88,
+    "tags": ["React", "CSS", "Accessibility"]
+  },
+  {
+    "id": "rs-002",
+    "company": "RoleSync Technologies",
+    "position": "Frontend Developer",
+    "status": "Rejected",
+    "timestamp": "2025-11-27T16:40:00Z",
+    "message": "Thank you for applying. After careful review, we've decided not to move forward with your application for the Frontend Developer position at this time. We encourage you to apply for future roles that match your experience.",
+    "score": 54,
+    "tags": ["Vanilla JS", "Performance"]
+  },
+  {
+    "id": "acme-101",
+    "company": "Acme Corp",
+    "position": "Backend Engineer",
+    "status": "Interview",
+    "timestamp": "2025-11-25T09:00:00Z",
+    "message": "Your profile is a match for our Backend Engineer role. We'll invite you to a technical interview focusing on APIs and system design.",
+    "score": 75,
+    "tags": ["Python", "APIs"]
+  },
+  {
+    "id": "mini-404",
+    "company": "StartupLabs",
+    "position": "Fullstack Engineer",
+    "status": "Rejected",
+    "timestamp": "2025-11-20T11:22:00Z",
+    "message": "We appreciate your interest, but we've chosen candidates with more senior experience for this round. Keep an eye on our openings.",
+    "score": 48,
+    "tags": ["Node.js", "React"]
+  }
 ]

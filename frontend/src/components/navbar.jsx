@@ -83,8 +83,8 @@ export default function Navbar({ onAccountClick = () => {} }) {
     {/* LEFT */}
     <div className="nav-left">
       <div className="nav-logo">
-        <span className="logo-mark">AI</span>
-        <span className="logo-text">Consortium</span>
+        
+        <span className="logo-text">RoleSync</span>
       </div>
     </div>
 

@@ -45,7 +45,7 @@
   height: 100vh;
   width: var(--panel-width);
   max-width: calc(100vw - 40px);
-  background: linear-gradient(180deg, var(--glass), #fbfbfd);
+  background:  #dbe5f5;
   box-shadow: var(--shadow);
   border-left: 1px solid var(--border);
   transform: translateX(100%); /* hidden by default */

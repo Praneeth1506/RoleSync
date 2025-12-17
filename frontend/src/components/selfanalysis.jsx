@@ -286,127 +286,117 @@ export default function Selfan({
   };
 
   return (
-    <div className="fd-wrapper">
-      <h2 className="fd-title">Self Analysis</h2>
-      <p className="fd-sub">Job Description (PDF or .docx)</p>
+    <div className="fd-wrapper fd-full">
 
-      <div
-        className={`fd-dropzone ${dragOver ? "drag-over" : ""}`}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        role="button"
-        onClick={() => inputRef.current && inputRef.current.click()}
-      >
-        <input
-          ref={inputRef}
-          className="fd-input"
-          type="file"
-          accept={accept}
-          multiple={multiple}
-          onChange={handleInputChange}
-        />
-
-        <div className="fd-inner">
-          <button
-            type="button"
-            className="fd-choose"
-            onClick={(e) => {
-              e.stopPropagation();
-              inputRef.current && inputRef.current.click();
-            }}
+      <div className="sa-layout">
+        {/* LEFT: upload + job role (dark panel) */}
+        <div className="sa-left">
+          {/* move page title into left panel */}
+          <h2 className="fd-title">Self Analysis</h2>
+          <p className="fd-sub">Job Description (PDF or .docx)</p>
+          <div
+            className={`fd-dropzone ${dragOver ? "drag-over" : ""}`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            role="button"
+            onClick={() => inputRef.current && inputRef.current.click()}
           >
-            <span className="fd-choose-icon">📁</span>
-            <span className="fd-choose-text">Choose File</span>
-            <span className="fd-choose-arrow">▾</span>
-          </button>
+            <input
+              ref={inputRef}
+              className="fd-input"
+              type="file"
+              accept={accept}
+              multiple={multiple}
+              onChange={handleInputChange}
+            />
 
-          <div className="fd-note" style={{ fontSize: "11px" }}>
-            Max file size {friendlySize(maxSizeBytes)}.
+            <div className="fd-inner">
+              <button
+                type="button"
+                className="fd-choose"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  inputRef.current && inputRef.current.click();
+                }}
+              >
+                <span className="fd-choose-icon">📁</span>
+                <span className="fd-choose-text">Choose File</span>
+                <span className="fd-choose-arrow">▾</span>
+              </button>
+
+              <div className="fd-note" style={{ fontSize: "11px" }}>
+                Max file size {friendlySize(maxSizeBytes)}.
+              </div>
+
+              <div className="fd-draghint">or drag & drop files here</div>
+            </div>
           </div>
 
-          <div className="fd-draghint">or drag & drop files here</div>
-        </div>
-      </div>
+          <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", marginTop: "18px" }}>
+            <div className="fd-files" style={{ flex: 1 }}>
+              {files.length === 0 ? (
+                <div className="fd-empty" style={{ padding: "6px 10px", fontSize: "12px", textAlign: "left" }}>
+                  No files selected
+                </div>
+              ) : (
+                files.map((f) => (
+                  <div className="fd-file" key={f.id}>
+                    <div className="fd-file-left">
+                      <div className="fd-file-name">{f.file.name}</div>
+                      <div className="fd-file-meta" style={{ fontSize: "11px" }}>
+                        {friendlySize(f.file.size)}
+                      </div>
+                      {f.error && <div className="fd-file-error">{f.error}</div>}
+                    </div>
 
-      <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", marginTop: "18px" }}>
-        <div className="fd-files" style={{ flex: 1 }}>
-          {files.length === 0 ? (
-            <div className="fd-empty" style={{ padding: "6px 10px", fontSize: "12px", textAlign: "left" }}>
-              No files selected
+                    <div className="fd-file-right">
+                      <button className="fd-remove" onClick={() => removeFile(f.id)} title="Remove file">
+                        ✕
+                      </button>
+
+                      <div className="fd-progress-outer" aria-hidden>
+                        <div className="fd-progress" style={{ width: `${f.progress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          ) : (
-            files.map((f) => (
-              <div className="fd-file" key={f.id}>
-                <div className="fd-file-left">
-                  <div className="fd-file-name">{f.file.name}</div>
-                  <div className="fd-file-meta" style={{ fontSize: "11px" }}>
-                    {friendlySize(f.file.size)}
-                  </div>
-                  {f.error && <div className="fd-file-error">{f.error}</div>}
-                </div>
 
-                <div className="fd-file-right">
-                  <button className="fd-remove" onClick={() => removeFile(f.id)} title="Remove file">
-                    ✕
-                  </button>
+            <div className="fd-actions" style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "120px" }}>
+              <button className="fd-clear" onClick={clearAll} disabled={files.length === 0 && !jobRole} style={{ width: "100%" }}>
+                Clear
+              </button>
+              <button className="fd-upload" onClick={uploadAll} disabled={loading} style={{ width: "100%" }}>
+                {loading ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+          </div>
 
-                  <div className="fd-progress-outer" aria-hidden>
-                    <div className="fd-progress" style={{ width: `${f.progress}%` }} />
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
+          <div style={{ marginTop: "18px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: 600, color: "inherit" }}>Enter Job role</label>
+            <input
+              value={jobRole}
+              onChange={(e) => setJobRole(e.target.value)}
+              type="text"
+              placeholder="Job role (e.g., ML Engineer)"
+              className="sa-job-input"
+            />
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <div className="fd-info" style={{ color: error ? "crimson" : "inherit" }}>
+              {error ? `Error: ${error}` : info}
+            </div>
+          </div>
         </div>
 
-        <div className="fd-actions" style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "120px" }}>
-          <button className="fd-clear" onClick={clearAll} disabled={files.length === 0 && !jobRole} style={{ width: "100%" }}>
-            Clear
-          </button>
-          <button className="fd-upload" onClick={uploadAll} disabled={loading} style={{ width: "100%" }}>
-            {loading ? "Uploading..." : "Upload"}
-          </button>
+        {/* RIGHT: results (scrollable) */}
+        <div className="sa-right">
+          <div className="sa-results-container">{renderAnalysis(responseData)}</div>
         </div>
       </div>
-
-      <div style={{ marginTop: "18px" }}>
-        <label style={{ display: "block", marginBottom: "8px", fontWeight: 600, color: "var(--text)" }}>Enter Job role</label>
-        <input
-          value={jobRole}
-          onChange={(e) => setJobRole(e.target.value)}
-          type="text"
-          placeholder="Job role (e.g., ML Engineer)"
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #e6edf8",
-            fontSize: "14px",
-            color: "#374151",
-            fontFamily: "inherit",
-            boxSizing: "border-box",
-            transition: "border-color 200ms ease, box-shadow 200ms ease",
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = "#6366f1";
-            e.target.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = "#e6edf8";
-            e.target.style.boxShadow = "none";
-          }}
-        />
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <div className="fd-info" style={{ color: error ? "crimson" : "#374151" }}>
-          {error ? `Error: ${error}` : info}
-        </div>
-      </div>
-
-      {/* Render analysis result */}
-      <div style={{ marginTop: 18 }}>{renderAnalysis(responseData)}</div>
     </div>
   );
 }
