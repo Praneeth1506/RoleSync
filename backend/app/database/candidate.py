@@ -177,16 +177,59 @@ class CandidateDB:
             {"$push": {"manual_shortlists": record}}
         )
 
-        @staticmethod
-        def add_final_feedback(candidate_id, job_role_id, feedback_text):
-            entry = {
-                "job_role_id": job_role_id,
-                "feedback": feedback_text,
-                "timestamp": datetime.datetime.utcnow()
+    @staticmethod
+    def add_final_feedback(candidate_id, job_role_id, feedback_text):
+        entry = {
+            "job_role_id": job_role_id,
+            "feedback": feedback_text,
+            "timestamp": datetime.datetime.utcnow()
+        }
+
+        candidates_col.update_one(
+            {"_id": ObjectId(candidate_id)},
+            {"$push": {"final_feedback": entry}}
+        )
+
+    @staticmethod
+    def get_analysis_for_job(job_role_id: str):
+        results = []
+
+        cursor = candidates_col.find(
+            {"analysis.job_role_id": job_role_id},
+            {
+                "name": 1,
+                "email": 1,
+                "analysis": 1
             }
+        )
 
-            candidates_col.update_one(
-                {"_id": ObjectId(candidate_id)},
-                {"$push": {"final_feedback": entry}}
-            )
+        for c in cursor:
+            for a in c.get("analysis", []):
+                if a.get("job_role_id") == job_role_id:
+                    results.append({
+                        "candidate_id": str(c["_id"]),
+                        "name": c.get("name"),
+                        "email": c.get("email"),
+                        "match_score": a.get("match_score"),
+                        "ats_score": a.get("ats_score"),
+                        "semantic": a.get("semantic"),
+                        "timestamp": a.get("timestamp"),
+                    })
 
+        return results
+
+    @staticmethod
+    def link_user(candidate_id, user_id):
+        candidates_col.update_one(
+            {"_id": ObjectId(candidate_id)},
+            {"$set": {"linked_user_id": user_id}}
+        )
+
+    @staticmethod
+    def find_or_create_by_email(email, data):
+        return candidates_col.find_one_and_update(
+            { "email": email },
+            { "$setOnInsert": data },
+            upsert=True,
+            return_document=True
+        )

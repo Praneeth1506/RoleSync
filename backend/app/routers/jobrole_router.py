@@ -17,6 +17,7 @@ async def create_jobrole(
     title: str = Form(...),
     jd_file: Optional[UploadFile] = File(None),
     jd_text: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     current_user = Depends(require_role("recruiter"))
 ):
 

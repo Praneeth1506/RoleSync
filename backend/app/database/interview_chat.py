@@ -28,7 +28,7 @@ class InterviewChatDB:
     @staticmethod
     def add_message(session_id, sender, text, metadata=None):
         msg = {
-            "sender": sender,  # "candidate" or "ai"
+            "sender": sender,  
             "text": text,
             "metadata": metadata or {},
             "timestamp": datetime.utcnow()

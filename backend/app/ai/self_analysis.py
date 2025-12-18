@@ -6,6 +6,7 @@ from .match_score import compute_match_score
 from .skill_gap import get_skill_gap
 from .feedback import generate_feedback
 from ..database.candidate import CandidateDB
+from ..ai.learning_path import generate_learning_path
 
 
 ROLE_SKILL_MAP = {
@@ -139,6 +140,11 @@ def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None
 
     skill_gap = get_skill_gap(parsed["skills"], skill_info["required_skills"])
 
+    learning_path = generate_learning_path(
+        skill_gaps=skill_gap,
+        candidate_skills=parsed["skills"],
+        target_role=detected_role
+    )
     try:
         feedback = generate_feedback(parsed, skill_info)
     except Exception as e:
@@ -151,5 +157,6 @@ def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None
         "skill_gap": skill_gap,
         "feedback": feedback,
         "auto_detected_role": detected_role,
+        "learning_path": learning_path,
         "timestamp": datetime.utcnow().isoformat()
     }

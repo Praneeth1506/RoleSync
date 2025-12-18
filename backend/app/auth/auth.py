@@ -197,4 +197,20 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
         "token_type": "bearer",
     }
 
+@router.get("/me")
+def auth_me(current_user=Depends(get_current_user)):
+    current_user.pop("password", None)
+    current_user.pop("hashed_password", None)
 
+    if current_user.get("role") == "candidate":
+        if not current_user.get("linked_id"):
+            candidate = CandidateDB.find_by_email(current_user["email"].lower())
+            if candidate:
+                link_user_to_profile(current_user["_id"], candidate["_id"])
+                CandidateDB.link_user(candidate["_id"], current_user["_id"])
+                current_user["linked_id"] = candidate["_id"]
+
+    return {
+        "ok": True,
+        "user": current_user
+    }
