@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 # Load environment variables FIRST
 load_dotenv()
 
-MONGO_URL = os.getenv("MONGO_URL")
+MONGO_URL = "mongoURL"
 
 if not MONGO_URL:
     raise Exception("❌ MONGO_URL missing in .env")

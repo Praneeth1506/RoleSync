@@ -6,7 +6,7 @@ from typing import Dict, Any
 import google.generativeai as genai
 from .project_relevance import project_relevance_score
 
-_GENAI_KEY = os.getenv("GEMINI_API_KEY")
+_GENAI_KEY =  "apikey"
 if _GENAI_KEY:
     try:
         genai.configure(api_key=_GENAI_KEY)

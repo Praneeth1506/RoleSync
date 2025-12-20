@@ -6,7 +6,7 @@ import google.generativeai as genai
 from .resume_parser import extract_text  
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key= "apikey")
 
 MODEL_NAME = "gemini-2.5-flash"
 

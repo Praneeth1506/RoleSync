@@ -11,7 +11,7 @@ from .feedback import generate_feedback
 from ..database.candidate import CandidateDB
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key= "apikey")
 
 ROLE_SKILL_MAP = {
     "data analyst": {

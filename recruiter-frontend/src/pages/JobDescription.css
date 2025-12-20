@@ -1,0 +1,115 @@
+/* --- Job Description Specific Styles --- */
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary); /* Uses base primary color */
+    margin-bottom: 25px;
+}
+
+/* --- Job Card List Styling --- */
+.job-card {
+    /* Base card style is inherited, adding margin for spacing */
+    margin-bottom: 15px;
+}
+
+.job-card .card-body {
+    /* Overrides default card padding if necessary, but primarily handles layout */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+}
+
+.job-card h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+}
+
+/* --- Action Button Adjustments --- */
+.btn-secondary {
+    background-color: #f1f5f9; /* Light gray */
+    color: var(--text); 
+    border: 1px solid #ddd;
+}
+.btn-secondary:hover:not(:disabled) {
+    background-color: #e2e8f0; 
+}
+
+.btn-danger {
+    background-color: #dc3545; /* A standard Bootstrap-like red */
+    color: white;
+}
+.btn-danger:hover:not(:disabled) {
+    background-color: #c82333;
+}
+
+/* Small button styling for icons */
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.875rem;
+}
+
+/* --- File Upload Box (Unique to the Form) --- */
+.file-upload-box {
+    border: 2px dashed #94a3b8; /* slate-400 */
+    padding: 20px;
+    text-align: center;
+    border-radius: 6px;
+    background-color: #fafafa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.file-upload-box:hover {
+    background-color: #f0f0f0;
+}
+
+/* --- Modal Styles (Since they are complex structures) --- */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 450px; /* Specific width for the form modal */
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.close-btn:hover {
+    color: var(--text);
+}
+
+/* --- Utility/Animation --- */
+.spin-anim {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

@@ -22,7 +22,7 @@ from ..ai.semantic_fit import explain_semantic_fit
 
 router = APIRouter(prefix="/match", tags=["match"])
 
-_GENAI_KEY = os.getenv("GEMINI_API_KEY")
+_GENAI_KEY =  "apikey"
 if _GENAI_KEY:
     try:
         genai.configure(api_key=_GENAI_KEY)

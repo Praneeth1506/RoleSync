@@ -12,8 +12,8 @@ from ..database.candidate import CandidateDB
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-if os.getenv("GEMINI_API_KEY"):
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+if  "apikey":
+    genai.configure(api_key= "apikey")
 
 class ChatMessage(BaseModel):
     message: str
