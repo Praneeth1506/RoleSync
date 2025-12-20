@@ -1,10 +1,5 @@
 import json
-import google.generativeai as genai
-import os
-
-genai.configure(api_key= "apikey")
-
-model = genai.GenerativeModel("gemini-2.5-flash")
+from .llm_client import llm_generate
 
 def interview_ai(query, history, role):
     history_text = ""
@@ -36,15 +31,16 @@ Respond ONLY in JSON format:
 }}
 """
 
+
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
-        obj = json.loads(text[text.find("{"):text.rfind("}")+1])
-        return obj
-    except Exception as e:
+        text = llm_generate(prompt, temperature=0.4)
+        start = text.find("{")
+        end = text.rfind("}")
+        return json.loads(text[start:end + 1])
+    except Exception:
         return {
-            "reply": "Sorry, I couldn’t process that.",
+            "reply": "Let's continue.",
             "should_continue": True,
             "evaluation": "",
-            "next_question": "Let's continue. Explain a recent project you built."
+            "next_question": "Explain a recent project you worked on."
         }

@@ -3,16 +3,16 @@
 /* ========================================================= */
 
 .nav {
-  --bg: #0f172a;
-  --text: #f1f5f9;
-  --primary: #60a5fa;
+  --bg: #001f4d; /* navy page/nav background */
+  --text: #fff7f1;
+  --primary: #ffccba; /* peach accent for hover/buttons if needed */
 
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   background: var(--bg);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding: 14px 20px;
   z-index: 1000;
   backdrop-filter: blur(6px);
@@ -36,6 +36,9 @@
   display: flex;
   align-items: center;
 }
+ 
+/* ensure right-side items sit at the far right */
+.nav-right { margin-left: auto; }
 
 /* CENTER grows and keeps tabs perfectly centered */
 .nav-center {
@@ -79,7 +82,10 @@
 }
 
 .logo-text {
-  font-size: 18px;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: var(--text);
 }
 
 /* ========================================================= */
@@ -111,14 +117,14 @@
 /* ========================================================= */
 
 .btn-primary {
-  background: linear-gradient(90deg, #6366f1, #3b82f6);
+  background: var(--peach);
   color: white;
   border: none;
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 200ms ease;
+  transition: opacity 160ms ease, transform 120ms ease;
 }
 
 .btn-primary:hover {

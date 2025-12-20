@@ -1,23 +1,15 @@
 import json
 import datetime
-import google.generativeai as genai
-import os
-
-genai.configure(api_key= "apikey")
-
-MODEL = "gemini-2.5-pro"
+from .llm_client import llm_generate
 
 
 def _json_safe(obj):
     if isinstance(obj, datetime.datetime):
         return obj.isoformat()
-
     if isinstance(obj, list):
         return [_json_safe(x) for x in obj]
-
     if isinstance(obj, dict):
         return {k: _json_safe(v) for k, v in obj.items()}
-
     return obj
 
 
@@ -46,13 +38,9 @@ Return STRICT JSON ONLY:
 """
 
     try:
-        model = genai.GenerativeModel(MODEL)
-        resp = model.generate_content(prompt)
-        txt = resp.text.strip()
-
-        s, e = txt.find("{"), txt.rfind("}")
-        return json.loads(txt[s:e+1])
-
+        text = llm_generate(prompt)
+        s, e = text.find("{"), text.rfind("}")
+        return json.loads(text[s:e + 1])
     except Exception as e:
         return {
             "fit_summary": "Semantic analysis failed.",

@@ -6,10 +6,6 @@ candidates_col = db.candidates
 
 
 class CandidateDB:
-
-    # ---------------------------------------------------------
-    # 1. Insert candidate document
-    # ---------------------------------------------------------
     @staticmethod
     def insert_candidate_doc(doc: dict):
         now = datetime.datetime.utcnow()
@@ -19,9 +15,7 @@ class CandidateDB:
         doc["_id"] = str(res.inserted_id)
         return doc
 
-    # ---------------------------------------------------------
-    # 2. Update parsed resume (used in profile resume upload)
-    # ---------------------------------------------------------
+
     @staticmethod
     def update_parsed_resume(candidate_id, parsed_data: dict):
         candidates_col.update_one(
@@ -39,9 +33,6 @@ class CandidateDB:
         )
         return CandidateDB.get(candidate_id)
 
-    # ---------------------------------------------------------
-    # 3. Find by resume hash (duplicate detection)
-    # ---------------------------------------------------------
     @staticmethod
     def find_by_hash(h: str):
         r = candidates_col.find_one({"file_hash": h})
@@ -50,9 +41,6 @@ class CandidateDB:
         r["_id"] = str(r["_id"])
         return r
 
-    # ---------------------------------------------------------
-    # 4. Find by email (auto-linking)
-    # ---------------------------------------------------------
     @staticmethod
     def find_by_email(email: str):
         r = candidates_col.find_one({"email": email.lower()})
@@ -61,9 +49,6 @@ class CandidateDB:
         r["_id"] = str(r["_id"])
         return r
 
-    # ---------------------------------------------------------
-    # 5. Find by linked user_id (candidate logged-in account)
-    # ---------------------------------------------------------
     @staticmethod
     def find_by_user_id(user_id: str):
         r = candidates_col.find_one({"user_id": user_id})
@@ -72,9 +57,6 @@ class CandidateDB:
         r["_id"] = str(r["_id"])
         return r
 
-    # ---------------------------------------------------------
-    # 6. Update resume (used internally)
-    # ---------------------------------------------------------
     @staticmethod
     def update_resume(candidate_id: str, parsed_data: dict):
         candidates_col.update_one(
@@ -92,9 +74,6 @@ class CandidateDB:
         )
         return CandidateDB.get(candidate_id)
 
-    # ---------------------------------------------------------
-    # 7. Store analysis for a specific JD (ATS, match score)
-    # ---------------------------------------------------------
     @staticmethod
     def add_analysis(candidate_id: str, job_role_id: str, analysis_dict: dict):
         analysis_dict.setdefault("timestamp", datetime.datetime.utcnow())
@@ -108,9 +87,6 @@ class CandidateDB:
         )
         return True
 
-    # ---------------------------------------------------------
-    # 8. Get top N candidates (ranking)
-    # ---------------------------------------------------------
     @staticmethod
     def get_top_n(job_role_id: str, n: int = 5):
         cursor = candidates_col.find(
@@ -139,9 +115,6 @@ class CandidateDB:
         )
         return ranked[:n]
 
-    # ---------------------------------------------------------
-    # 9. Store recruiter feedback
-    # ---------------------------------------------------------
     @staticmethod
     def add_feedback(candidate_id: str, job_role_id: str, recruiter_id: str, feedback_text: str):
         fb = {
@@ -155,9 +128,6 @@ class CandidateDB:
             {"$push": {"feedback_history": fb}}
         )
 
-    # ---------------------------------------------------------
-    # 10. Store resume submission history
-    # ---------------------------------------------------------
     @staticmethod
     def add_submission(candidate_id: str, job_role_id: str, recruiter_id: str):
         record = {
@@ -170,9 +140,6 @@ class CandidateDB:
             {"$push": {"submission_history": record}}
         )
 
-    # ---------------------------------------------------------
-    # 11. General getter
-    # ---------------------------------------------------------
     @staticmethod
     def get(candidate_id: str):
         try:
@@ -184,17 +151,12 @@ class CandidateDB:
         except Exception:
             return None
 
-    # ---------------------------------------------------------
-    # 12. Text samples (optional)
-    # ---------------------------------------------------------
     @staticmethod
     def find_texts(limit: int = 200):
         cur = candidates_col.find({}, {"_id": 1, "parsed_text": 1}).limit(limit)
         return [{"_id": str(r["_id"]), "text": r.get("parsed_text", "")} for r in cur]
 
-    # ---------------------------------------------------------
-    # 13. Link temp candidate profile to final user after invite signup
-    # ---------------------------------------------------------
+
     @staticmethod
     def link_resume_to_user(candidate_temp_id: str, user_id: str):
         candidates_col.update_one(
@@ -215,16 +177,59 @@ class CandidateDB:
             {"$push": {"manual_shortlists": record}}
         )
 
-        @staticmethod
-        def add_final_feedback(candidate_id, job_role_id, feedback_text):
-            entry = {
-                "job_role_id": job_role_id,
-                "feedback": feedback_text,
-                "timestamp": datetime.datetime.utcnow()
+    @staticmethod
+    def add_final_feedback(candidate_id, job_role_id, feedback_text):
+        entry = {
+            "job_role_id": job_role_id,
+            "feedback": feedback_text,
+            "timestamp": datetime.datetime.utcnow()
+        }
+
+        candidates_col.update_one(
+            {"_id": ObjectId(candidate_id)},
+            {"$push": {"final_feedback": entry}}
+        )
+
+    @staticmethod
+    def get_analysis_for_job(job_role_id: str):
+        results = []
+
+        cursor = candidates_col.find(
+            {"analysis.job_role_id": job_role_id},
+            {
+                "name": 1,
+                "email": 1,
+                "analysis": 1
             }
+        )
 
-            candidates_col.update_one(
-                {"_id": ObjectId(candidate_id)},
-                {"$push": {"final_feedback": entry}}
-            )
+        for c in cursor:
+            for a in c.get("analysis", []):
+                if a.get("job_role_id") == job_role_id:
+                    results.append({
+                        "candidate_id": str(c["_id"]),
+                        "name": c.get("name"),
+                        "email": c.get("email"),
+                        "match_score": a.get("match_score"),
+                        "ats_score": a.get("ats_score"),
+                        "semantic": a.get("semantic"),
+                        "timestamp": a.get("timestamp"),
+                    })
 
+        return results
+
+    @staticmethod
+    def link_user(candidate_id, user_id):
+        candidates_col.update_one(
+            {"_id": ObjectId(candidate_id)},
+            {"$set": {"linked_user_id": user_id}}
+        )
+
+    @staticmethod
+    def find_or_create_by_email(email, data):
+        return candidates_col.find_one_and_update(
+            { "email": email },
+            { "$setOnInsert": data },
+            upsert=True,
+            return_document=True
+        )

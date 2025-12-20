@@ -1,4 +1,3 @@
-# app/database/invite.py
 from .connection import db
 from bson.objectid import ObjectId
 import datetime

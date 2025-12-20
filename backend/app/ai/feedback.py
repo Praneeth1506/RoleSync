@@ -1,11 +1,6 @@
 import json
-import os
 import logging
-from dotenv import load_dotenv
-load_dotenv()
-
-import google.generativeai as genai
-genai.configure(api_key= "apikey")
+from .llm_client import llm_generate
 
 logger = logging.getLogger("rolesync.ai.feedback")
 logger.setLevel(logging.INFO)
@@ -31,21 +26,16 @@ def generate_feedback(parsed_resume: dict, jd_obj: dict):
         "}\n"
     )
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "response_mime_type": "application/json"
-            }
-        )
+        text = llm_generate(prompt)
+        start = text.find("{")
+        end = text.rfind("}")
+        return json.loads(text[start:end + 1])
     except Exception as e:
-        logger.exception("LLM call failed")
-        raise RuntimeError(f"LLM call failed: {e}")
-
-    try:
-        return json.loads(response.text)
-    except Exception:
-        logger.error("Gemini returned non-JSON even in JSON mode: %r", response.text)
-        return {"raw_text": response.text}
+        logger.exception("LLM feedback generation failed")
+        return {
+            "summary": "Feedback unavailable",
+            "match_score": 0,
+            "missing_skills": [],
+            "recommendations": []
+        }

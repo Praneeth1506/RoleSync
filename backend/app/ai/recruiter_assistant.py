@@ -1,30 +1,8 @@
 import json
-import os
-from dotenv import load_dotenv
-import google.generativeai as genai
-
-load_dotenv()
-genai.configure(api_key= "apikey")
+from .llm_client import llm_generate
 
 
 def answer_recruiter_query(query, history, job_role, candidates):
-    """
-    Core recruiter assistant.
-
-    Args:
-        query (str): latest recruiter message.
-        history (list[dict]): last messages, shape:
-            [{"sender": "recruiter"|"ai", "text": "..."}, ...]
-        job_role (dict|None): job role document from JobRoleDB or None.
-        candidates (list[dict]): candidate summaries tied to this chat.
-
-    Returns:
-        dict: {
-          "reply": "<assistant message>",
-          "suggested_actions": [...],
-        }
-    """
-
     history_text = ""
     for msg in history[-10:]:
         role = "Recruiter" if msg.get("sender") == "recruiter" else "Assistant"
@@ -65,18 +43,15 @@ Return ONLY valid JSON in this exact format:
 }}
 """
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        text = llm_generate(prompt)
 
         if text.startswith("{"):
             return json.loads(text)
 
         start, end = text.find("{"), text.rfind("}")
         if start != -1 and end != -1:
-            return json.loads(text[start : end + 1])
+            return json.loads(text[start:end + 1])
 
         raise ValueError("Invalid JSON from model")
 

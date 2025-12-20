@@ -83,15 +83,15 @@ export default function Navbar({ onAccountClick = () => {} }) {
     {/* LEFT */}
     <div className="nav-left">
       <div className="nav-logo">
-        <span className="logo-mark">AI</span>
-        <span className="logo-text">Consortium</span>
+        
+        <span className="logo-text">RoleSync</span>
       </div>
     </div>
 
     {/* CENTER */}
     <div className="nav-center">
       <nav className={`nav-links ${menuOpen ? "open" : ""}`}>
-        <a href="/">Home</a>
+        <a href="/"></a>
         <a href="/self">Analysis</a>
         <a href="/feedback">Feedback</a>
         <a href="/cht">Interview Prep</a>

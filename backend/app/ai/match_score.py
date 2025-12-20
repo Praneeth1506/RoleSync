@@ -1,23 +1,17 @@
-import os
-import re
 import json
-import datetime
+import re
 from typing import Dict, Any
-import google.generativeai as genai
-from .project_relevance import project_relevance_score
 
-_GENAI_KEY =  "apikey"
-if _GENAI_KEY:
-    try:
-        genai.configure(api_key=_GENAI_KEY)
-    except Exception:
-        _GENAI_KEY = None
+from .project_relevance import project_relevance_score
+from .llm_client import llm_generate
+
 
 def parse_experience_to_int(exp):
     if exp is None:
         return None
     if isinstance(exp, (int, float)):
         return int(exp)
+
     text = str(exp).lower().strip()
 
     m = re.match(r"(\d+)\s*-\s*(\d+)", text)
@@ -65,17 +59,25 @@ def deterministic_score(candidate: Dict[str, Any], job_role: Dict[str, Any]):
     projects = _normalize_list(candidate.get("projects"))
     raw_text = (candidate.get("parsed_text") or candidate.get("raw_text") or "").lower()
 
-    req_cov = round(100 * (sum(1 for r in req if r in cand_sk) / len(req)), 2) if req else 100.0
-    pref_cov = round(100 * (sum(1 for p in pref if p in cand_sk) / len(pref)), 2) if pref else 100.0
+    req_cov = round(
+        100 * (sum(1 for r in req if r in cand_sk) / len(req)), 2
+    ) if req else 100.0
+
+    pref_cov = round(
+        100 * (sum(1 for p in pref if p in cand_sk) / len(pref)), 2
+    ) if pref else 100.0
 
     try:
-        proj_score = round(project_relevance_score(projects, job_role.get("responsibilities", [])) * 100, 2)
+        proj_score = round(
+            project_relevance_score(projects, job_role.get("responsibilities", [])) * 100, 2
+        )
     except Exception:
         proj_score = 0.0
 
     ideal = parse_experience_to_int(
         job_role.get("experience_level") or job_role.get("parsed", {}).get("experience_level")
     )
+
     cand_exp = candidate.get("experience_years") or 0
     if ideal is None or ideal <= 0:
         exp_score = 50.0
@@ -84,12 +86,19 @@ def deterministic_score(candidate: Dict[str, Any], job_role: Dict[str, Any]):
 
     keys = req + pref
     if keys:
-        semantic_hits = sum(1 for k in keys if k and k.lower() in raw_text)
+        semantic_hits = sum(1 for k in keys if k.lower() in raw_text)
         semantic_score = round(100 * (semantic_hits / len(keys)), 2)
     else:
         semantic_score = 50.0
 
-    weights = {"required": 0.35, "preferred": 0.15, "semantic": 0.15, "projects": 0.2, "experience": 0.15}
+    weights = {
+        "required": 0.35,
+        "preferred": 0.15,
+        "semantic": 0.15,
+        "projects": 0.20,
+        "experience": 0.15
+    }
+
     total = (
         req_cov * weights["required"]
         + pref_cov * weights["preferred"]
@@ -105,36 +114,39 @@ def deterministic_score(candidate: Dict[str, Any], job_role: Dict[str, Any]):
             "preferred_coverage": pref_cov,
             "semantic_fit": semantic_score,
             "project_relevance": proj_score,
-            "experience_fit": exp_score
+            "experience_fit": exp_score,
         },
         "explanations": [
             f"Required skill match: {req_cov}%",
             f"Preferred skill match: {pref_cov}%",
             f"Project relevance: {proj_score}%",
-            f"Experience fit: {exp_score}%"
+            f"Experience fit: {exp_score}%",
         ],
-        "method": "deterministic"
+        "method": "deterministic",
     }
 
 
-def gemini_score(candidate: Dict[str, Any], job_role: Dict[str, Any], model_name="gemini-2.5-pro"):
-    if not _GENAI_KEY:
-        raise RuntimeError("Gemini key not configured")
-
+def llm_score(candidate: Dict[str, Any], job_role: Dict[str, Any]):
     cand_brief = {
         "name": candidate.get("name"),
         "skills": _normalize_list(candidate.get("skills")),
         "projects": _normalize_list(candidate.get("projects"))[:6],
         "experience_years": candidate.get("experience_years", 0),
-        "resume_snippet": _safe_text(candidate.get("parsed_text", "") or candidate.get("raw_text", ""), 2000),
+        "resume_snippet": _safe_text(
+            candidate.get("parsed_text") or candidate.get("raw_text", ""), 2000
+        ),
     }
+
     job_brief = {
         "title": job_role.get("title"),
         "required_skills": _normalize_list(job_role.get("required_skills")),
         "preferred_skills": _normalize_list(job_role.get("preferred_skills")),
         "responsibilities": _normalize_list(job_role.get("responsibilities"))[:12],
-        "experience_level": job_role.get("experience_level") or job_role.get("parsed", {}).get("experience_level"),
-        "jd_snippet": _safe_text(job_role.get("raw_text") or job_role.get("parsed", {}).get("raw_text", ""), 2000),
+        "experience_level": job_role.get("experience_level")
+        or job_role.get("parsed", {}).get("experience_level"),
+        "jd_snippet": _safe_text(
+            job_role.get("raw_text") or job_role.get("parsed", {}).get("raw_text", ""), 2000
+        ),
     }
 
     prompt = f"""
@@ -145,7 +157,7 @@ JobRole: {json.dumps(job_brief)}
 
 Return JSON exactly with keys:
 {{
-  "score": number,                // overall 0..100
+  "score": number,
   "components": {{
      "required_coverage": number,
      "preferred_coverage": number,
@@ -156,32 +168,33 @@ Return JSON exactly with keys:
   "explanations": ["short bullet sentences only"]
 }}
 """
-    model = genai.GenerativeModel(model_name)
-    resp = model.generate_content(prompt)
-    text = resp.text.strip()
 
-    s = text.find("{")
-    e = text.rfind("}")
-    if s == -1 or e == -1:
-        raise ValueError("No JSON object in Gemini response")
+    text = llm_generate(prompt)
 
-    payload = json.loads(text[s:e+1])
-    if "score" not in payload or "components" not in payload:
-        raise ValueError("Gemini response missing required fields")
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError("No JSON object in LLM response")
 
-    payload["method"] = "gemini"
+    payload = json.loads(text[start:end + 1])
+    payload["method"] = "openai"
     payload["raw_llm_text"] = text[:2000]
+
     return payload
 
 
-def compute_match_score(candidate: Dict[str, Any], job_role: Dict[str, Any], use_llm: bool = True) -> Dict[str, Any]:
+def compute_match_score(
+    candidate: Dict[str, Any],
+    job_role: Dict[str, Any],
+    use_llm: bool = True
+) -> Dict[str, Any]:
+
     if not job_role.get("experience_level") and job_role.get("parsed", {}).get("experience_level"):
         job_role["experience_level"] = job_role["parsed"]["experience_level"]
 
-    if use_llm and _GENAI_KEY:
+    if use_llm:
         try:
-            return gemini_score(candidate, job_role)
+            return llm_score(candidate, job_role)
         except Exception as e:
-            print("Gemini scoring failed, falling back:", str(e))
+            print("LLM scoring failed, falling back:", str(e))
 
     return deterministic_score(candidate, job_role)

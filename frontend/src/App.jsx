@@ -63,8 +63,8 @@ function AppContent() {
       <AccountSidebar open={open} onClose={() => setOpen(false)} user={user} />
 
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/upload" element={<FileUpload />} />
+        <Route path="/upload" element={<Home />} />
+        <Route path="/" element={<FileUpload />} />
         <Route path="/feedback" element={<Feedback />} />
         <Route path="/cht" element={<Chatbot />} />
         <Route path="/self" element={<Selfan />} />

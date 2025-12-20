@@ -28,7 +28,7 @@ class InterviewChatDB:
     @staticmethod
     def add_message(session_id, sender, text, metadata=None):
         msg = {
-            "sender": sender,  # "candidate" or "ai"
+            "sender": sender,  
             "text": text,
             "metadata": metadata or {},
             "timestamp": datetime.utcnow()
@@ -44,3 +44,7 @@ class InterviewChatDB:
         for c in chats:
             c["_id"] = str(c["_id"])
         return chats
+
+    @staticmethod
+    def delete(session_id):
+        interview_col.delete_one({"_id": ObjectId(session_id)})

@@ -2,14 +2,13 @@ import os
 import json
 import datetime
 import tempfile
-from typing import List, Optional, Literal
+from typing import List
 
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from openai import OpenAI
 
-import google.generativeai as genai
-
-from ..auth.auth import require_role, get_current_user
-from ..database.candidate import CandidateDB, candidates_col
+from ..auth.auth import require_role
+from ..database.candidate import CandidateDB
 from ..database.jobrole import JobRoleDB
 from ..database.invite import InviteDB
 from ..database.recruiter_chat import RecruiterChatDB
@@ -21,118 +20,150 @@ from ..ai.ats_scoring import compute_ats_score
 from ..ai.semantic_fit import explain_semantic_fit
 
 router = APIRouter(prefix="/match", tags=["match"])
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-_GENAI_KEY =  "apikey"
-if _GENAI_KEY:
-    try:
-        genai.configure(api_key=_GENAI_KEY)
-    except Exception:
-        _GENAI_KEY = None
+MATCH_THRESHOLD = 45
 
 
 def _get_or_create_shortlist_chat(recruiter_id: str, job_role: dict):
-    job_role_id = job_role.get("_id")
-    job_title = job_role.get("title", "Job Role")
-
-    chats = RecruiterChatDB.list_for_user(recruiter_id) or []
-    for c in chats:
-        if c.get("job_role_id") == job_role_id:
+    for c in RecruiterChatDB.list_for_user(recruiter_id) or []:
+        if c.get("job_role_id") == job_role["_id"]:
             return c
 
-    chat = RecruiterChatDB.create_chat(
+    return RecruiterChatDB.create_chat(
         creator_user_id=recruiter_id,
-        title=f"Shortlisting – {job_title}",
-        job_role_id=job_role_id,
-        candidates=[],
+        title=f"Shortlisting – {job_role.get('title', 'Job Role')}",
+        job_role_id=job_role["_id"],
+        candidates=[]
     )
-    return chat
 
 
-@router.post("/score_single")
-async def score_single(
-    file: UploadFile = File(...),
+def _openai_json(prompt: str) -> dict:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.4
+    )
+    text = resp.choices[0].message.content.strip()
+    s, e = text.find("{"), text.rfind("}")
+    return json.loads(text[s:e + 1])
+
+
+def generate_shortlist_explanation(parsed, job, match_score):
+    prompt = f"""
+Explain why this candidate was shortlisted.
+
+Job Title: {job.get('title')}
+Required Skills: {job.get('required_skills')}
+Preferred Skills: {job.get('preferred_skills')}
+Candidate Skills: {parsed.get('skills')}
+Experience: {parsed.get('experience_years')} years
+Match Score: {match_score}%
+
+Return STRICT JSON:
+{{
+  "summary": "",
+  "strengths": [],
+  "recommendation": ""
+}}
+"""
+    try:
+        return _openai_json(prompt)
+    except Exception:
+        return {
+            "summary": f"Matched {match_score}% of requirements.",
+            "strengths": [],
+            "recommendation": "Proceed to interview"
+        }
+
+
+def generate_rejection_feedback(parsed, job, match_score):
+    prompt = f"""
+Write polite rejection feedback with improvement advice.
+
+Job Title: {job.get('title')}
+Required Skills: {job.get('required_skills')}
+Candidate Skills: {parsed.get('skills')}
+Match Score: {match_score}%
+
+Plain text only.
+"""
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception:
+        return "Your profile does not currently meet the role requirements."
+
+
+
+@router.post("/single")
+def match_single_candidate(
+    candidate_id: str = Form(...),
     job_role_id: str = Form(...),
     current_user=Depends(require_role("recruiter"))
 ):
     job = JobRoleDB.get(job_role_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job role not found")
+        raise HTTPException(404, "Job role not found")
 
-    suffix = os.path.splitext(file.filename)[1]
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    tmp_path = tmp.name
-    tmp.write(await file.read())
-    tmp.close()
+    candidate = CandidateDB.get(candidate_id)
+    if not candidate:
+        raise HTTPException(404, "Candidate not found")
 
-    parsed = parse_resume(tmp_path)
-
-    try:
-        os.remove(tmp_path)
-    except Exception:
-        pass
-
-    if not parsed.get("email"):
-        raise HTTPException(status_code=400, detail="Resume must include an email address")
-
-    email = parsed["email"].lower()
-
-    existing = CandidateDB.find_by_email(email)
-    if existing:
-        candidate_id = existing["_id"]
-    else:
-        created = CandidateDB.insert_candidate_doc({
-            "email": email,
-            "name": parsed.get("name"),
-            "skills": parsed.get("skills", []),
-            "projects": parsed.get("projects", []),
-            "parsed_text": parsed.get("raw_text", "") or parsed.get("parsed_text", ""),
-            "experience_years": parsed.get("experience_years", 0),
-            "analysis": [],
-            "linked_user_id": None
-        })
-        candidate_id = created["_id"]
-
-    match_result = compute_match_score(parsed, job)
-    match_score = match_result.get("score", 0)
-
-    ats = compute_ats_score(
-        parsed.get("parsed_text") or parsed.get("raw_text", ""),
-        job.get("required_skills", []) or job.get("parsed", {}).get("required_skills", [])
-    )
-
-    try:
-        semantic = explain_semantic_fit(parsed, job)
-    except Exception:
-        semantic = {
-            "fit_summary": "semantic analysis failed",
-            "strengths": [],
-            "weaknesses": [],
-            "reasoning_score": 0
-        }
-
-    analysis = {
-        "job_role_id": job_role_id,
-        "match_score": match_score,
-        "match_components": match_result.get("components"),
-        "match_method": match_result.get("method"),
-        "ats_score": ats,
-        "semantic": semantic,
-        "skill_gaps": [
-            s for s in (
-                job.get("required_skills") or
-                job.get("parsed", {}).get("required_skills", [])
-            )
-            if s.lower() not in {sk.lower() for sk in (parsed.get("skills") or [])}
-        ],
-        "timestamp": datetime.datetime.utcnow()
+    parsed = {
+        "skills": candidate.get("skills", []),
+        "parsed_text": candidate.get("parsed_text", ""),
+        "experience_years": candidate.get("experience_years", 0),
+        "name": candidate.get("name"),
+        "email": candidate.get("email"),
     }
 
-    CandidateDB.add_analysis(candidate_id, job_role_id, analysis)
+    match = compute_match_score(parsed, job)
+    score = match["score"]
+    ats = compute_ats_score(
+        parsed.get("parsed_text", ""),
+        job.get("required_skills", [])
+    )
+
+    chat = _get_or_create_shortlist_chat(current_user["_id"], job)
+
+    if score >= MATCH_THRESHOLD:
+        FeedbackDB.create_draft(
+            candidate_id=candidate["_id"],
+            recruiter_id=current_user["_id"],
+            job_role_id=job_role_id,
+            feedback_text=""
+        )
+
+        return {
+            "ok": True,
+            "status": "shortlisted",
+            "candidate_id": str(candidate["_id"]),
+            "match_score": score,
+            "ats_score": ats,
+            "explanation": generate_shortlist_explanation(parsed, job, score),
+            "chat_id": str(chat["_id"])
+        }
+
+    feedback = generate_rejection_feedback(parsed, job, score)
+    FeedbackDB.create_draft(
+        candidate_id=candidate["_id"],
+        recruiter_id=current_user["_id"],
+        job_role_id=job_role_id,
+        feedback_text=feedback
+    )
 
     return {
         "ok": True,
-        "candidate_id": candidate_id,
-        "analysis": analysis
+        "status": "rejected",
+        "candidate_id": candidate["_id"],
+        "match_score": score,
+        "ats_score": ats,
+        "feedback": feedback
     }
 
 
@@ -144,97 +175,95 @@ async def shortlist_batch(
 ):
     job = JobRoleDB.get(job_role_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job role not found")
+        raise HTTPException(404, "Job role not found")
 
-    shortlisted = []
-    rejected = []
-    invite_links = []
-
+    shortlisted, rejected = [], []
     chat = _get_or_create_shortlist_chat(current_user["_id"], job)
-    chat_id = chat["_id"]
 
     for file in files:
         suffix = os.path.splitext(file.filename)[1]
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        tmp_path = tmp.name
         tmp.write(await file.read())
         tmp.close()
 
-        parsed = parse_resume(tmp_path)
-
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
+        parsed = parse_resume(tmp.name)
+        os.remove(tmp.name)
 
         if not parsed.get("email"):
-            rejected.append({
-                "candidate_id": None,
-                "email": None,
-                "name": parsed.get("name"),
-                "match_score": 0,
-                "ats_score": 0,
-                "feedback": "Email not detected in resume. Unable to process candidate."
-            })
             continue
 
-        email = parsed["email"].lower()
+        email = parsed["email"].strip().lower()
 
-        existing = CandidateDB.find_by_email(email)
-        if existing:
-            candidate_id = existing["_id"]
-        else:
-            new_cand = CandidateDB.insert_candidate_doc({
+        candidate = CandidateDB.find_or_create_by_email(
+            email,
+            {
                 "email": email,
                 "name": parsed.get("name"),
                 "skills": parsed.get("skills", []),
-                "projects": parsed.get("projects", []),
-                "parsed_text": parsed.get("raw_text", "") or parsed.get("parsed_text", ""),
-                "experience_years": parsed.get("experience_years", 0),
-                "analysis": [],
-                "linked_user_id": None
-            })
-            candidate_id = new_cand["_id"]
-
-        match_result = compute_match_score(parsed, job)
-        match_score = match_result.get("score", 0)
-
-        ats = compute_ats_score(
-            parsed.get("parsed_text") or parsed.get("raw_text", ""),
-            job.get("required_skills", []) or job.get("parsed", {}).get("required_skills", [])
+                "parsed_text": parsed.get("raw_text", ""),
+                "analysis": []
+            }
         )
 
-        CandidateDB.add_submission(candidate_id, job_role_id, current_user["_id"])
+        match = compute_match_score(parsed, job)
+        score = match["score"]
+        ats = compute_ats_score(
+            parsed.get("parsed_text", ""),
+            job.get("required_skills", [])
+        )
 
-        if match_score >= 45:
-            shortlisted.append({
-                "candidate_id": candidate_id,
-                "email": email,
-                "name": parsed.get("name"),
-                "match_score": match_score,
-                "ats_score": ats
-            })
-        else:
-            feedback = "We could not progress your application further for this role."
+        analysis = {
+            "candidate_id": candidate["_id"],
+            "job_role_id": job_role_id,
+            "name": parsed.get("name"),
+            "email": email,
+            "match_score": score,
+            "ats_score": ats,
+            "skills": parsed.get("skills", []),
+            "experience_years": parsed.get("experience_years", 0),
+            "timestamp": datetime.datetime.utcnow()
+        }
+
+        CandidateDB.add_analysis(candidate["_id"], job_role_id, analysis)
+
+        if score >= MATCH_THRESHOLD:
             FeedbackDB.create_draft(
-                candidate_id=candidate_id,
+                candidate_id=candidate["_id"],
                 recruiter_id=current_user["_id"],
                 job_role_id=job_role_id,
-                feedback_text=feedback
+                feedback_text=""
             )
-            rejected.append({
-                "candidate_id": candidate_id,
+
+            shortlisted.append({
+                "candidate_id": str(candidate["_id"]),
                 "email": email,
                 "name": parsed.get("name"),
-                "match_score": match_score,
+                "match_score": score,
+                "ats_score": ats,
+                "explanation": generate_shortlist_explanation(parsed, job, score)
+            })
+        else:
+            feedback = generate_rejection_feedback(parsed, job, score)
+            FeedbackDB.create_draft(
+                candidate["_id"],
+                current_user["_id"],
+                job_role_id,
+                feedback
+            )
+
+            rejected.append({
+                "candidate_id": str(candidate["_id"]),
+                "email": email,
+                "name": parsed.get("name"),
+                "match_score": score,
                 "ats_score": ats,
                 "feedback": feedback
             })
 
     return {
         "ok": True,
-        "chat_id": chat_id,
+        "chat_id": str(chat["_id"]),
         "shortlisted": shortlisted,
         "rejected": rejected,
-        "invite_links": invite_links
+        "invite_links": []
     }

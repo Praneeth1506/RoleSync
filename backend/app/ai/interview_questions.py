@@ -1,32 +1,27 @@
 import json
-import google.generativeai as genai
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-genai.configure(api_key= "apikey")
+from .llm_client import llm_generate
 
 def generate_interview_questions(candidate, job_role):
     prompt = f"""
-    Generate interview questions for this candidate applying for this job role.
+Generate interview questions for this candidate.
 
-    Candidate Skills:
-    {candidate.get("skills", [])}
+Candidate Skills:
+{candidate.get("skills", [])}
 
-    Projects:
-    {candidate.get("projects", [])}
+Projects:
+{candidate.get("projects", [])}
 
-    Job Requirements:
-    {job_role.get("required_skills", [])}
+Job Requirements:
+{job_role.get("required_skills", [])}
 
-    Give:
-    - technical questions
-    - project questions
-    - behavioral questions
-    - improvement tips
-    Return JSON only.
-    """
+Return JSON ONLY with:
+- technical_questions
+- project_questions
+- behavioral_questions
+- improvement_tips
+"""
 
-    model = genai.GenerativeModel("gemini-2.5-pro")
-    response = model.generate_content(prompt)
-    return json.loads(response.text)
+    text = llm_generate(prompt)
+    start = text.find("{")
+    end = text.rfind("}")
+    return json.loads(text[start:end + 1])

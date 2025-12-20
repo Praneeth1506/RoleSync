@@ -3,6 +3,7 @@ from ..auth.auth import require_role
 from ..database.feedback import FeedbackDB
 from ..database.candidate import CandidateDB
 from ..database.jobrole import JobRoleDB
+from bson import ObjectId
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -49,8 +50,12 @@ def feedback_approve(
     current_user = Depends(require_role("recruiter"))
 ):
     draft = FeedbackDB.get(draft_id)
-    if not draft or draft["recruiter_id"] != current_user["_id"]:
+
+    if not draft:
         raise HTTPException(404, "Draft not found")
+
+    if draft["recruiter_id"] != current_user["_id"]:
+        raise HTTPException(403, "Not authorized")
 
     FeedbackDB.approve_draft(draft_id)
 
@@ -61,3 +66,19 @@ def feedback_approve(
     )
 
     return {"ok": True, "message": "Feedback approved and sent to candidate"}
+
+@router.post("/reject_remaining/{job_role_id}")
+def reject_remaining_candidates(
+    job_role_id: str,
+    current_user=Depends(require_role("recruiter"))
+):
+    count = FeedbackDB.reject_remaining_for_job(
+        recruiter_id=current_user["_id"],
+        job_role_id=job_role_id
+    )
+
+    return {
+        "ok": True,
+        "rejected_count": count,
+        "message": f"{count} candidates rejected successfully"
+    }

@@ -72,35 +72,46 @@ export default function SignIn() {
 
   return (
     <div className="signin-page">
-      <form className="signin-card" onSubmit={handleSubmit}>
-        <h2>Sign In</h2>
+      <div className="signin-wrapper">
+        <div className="signin-left">
+          <div className="brand-block">
+            <h1 className="brand-name">RoleSync</h1>
+            <p className="brand-sub">Smarter resumes. Better matches.</p>
+          </div>
+        </div>
 
-        <label>Email</label>
-        <input
-          name="username"
-          type="email"
-          value={form.username}
-          onChange={handleChange}
-          placeholder="you@example.com"
-          required
-        />
+        <div className="signin-right">
+          <form className="signin-card" onSubmit={handleSubmit}>
+            <h2 className="signin-title">Sign In</h2>
 
-        <label>Password</label>
-        <input
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          placeholder="Password"
-          required
-        />
+            <label>Email</label>
+            <input
+              name="username"
+              type="email"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="you@example.com"
+              required
+            />
 
-        {error && <div className="signin-error">{error}</div>}
+            <label>Password</label>
+            <input
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Password"
+              required
+            />
 
-        <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
-      </form>
+            {error && <div className="signin-error">{error}</div>}
+
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
