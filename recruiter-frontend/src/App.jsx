@@ -5,9 +5,10 @@ import './App.css';
 
 // Pages
 import Login from './pages/Login.jsx';
-// REMOVED: import CreateProfile from './pages/CreateProfile.jsx'; <-- No longer needed
 import DashboardLayout from './pages/DashboardLayout.jsx';
-import Assistant from './pages/Assistant.jsx';
+// === START MODIFICATION: Renamed component for General Chat ===
+import GeneralChat from './pages/GeneralChat.jsx'; 
+// === END MODIFICATION ===
 import Shortlist from './pages/Shortlist.jsx';
 import JobDescriptions from './pages/JobDescriptions.jsx';
 import ProfileSettings from './pages/ProfileSettings.jsx';
@@ -23,21 +24,28 @@ const ProtectedRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Login route now handles both login and registration.
-         We removed the /create-profile route.
-      */}
+      {/* Login route (handles login, register, verify) */}
       <Route path="/" element={<Login />} />
       
-      {/* Dashboard Routes */}
+      {/* Dashboard Routes (Protected) */}
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <DashboardLayout />
         </ProtectedRoute>
       }>
+        {/* Default route redirects to the General AI Assistant */}
         <Route index element={<Navigate to="/dashboard/assistant" replace />} />
-        <Route path="assistant" element={<Assistant />} />
-        <Route path="shortlist" element={<Shortlist />} />
+        
+        {/* Maps /dashboard/assistant to the GeneralChat component */}
+        <Route path="assistant" element={<GeneralChat />} /> 
+        
+        {/* Maps /dashboard/shortlist to the Shortlist component */}
+        <Route path="shortlist" element={<Shortlist />} /> 
+        
+        {/* Maps /dashboard/jobs to the JobDescriptions component */}
         <Route path="jobs" element={<JobDescriptions />} />
+        
+        {/* Maps /dashboard/profile to the ProfileSettings component */}
         <Route path="profile" element={<ProfileSettings />} />
       </Route>
     </Routes>
