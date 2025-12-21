@@ -6,33 +6,17 @@ import './JobDescription.css';
 
 // --- Reusable Component for Create/Edit Form ---
 const JobRoleForm = ({ mode, jobData, closeModal }) => {
-    const { 
-        addJobDescription, 
-        updateJobDescription, 
-        setError, 
-        error 
-    } = useRecruiter();
+    const { addJobDescription, updateJobDescription, setError, error } = useRecruiter();
 
     const [formData, setFormData] = useState({
         title: jobData?.title || '',
         location: jobData?.location || '',
-        required_skills: jobData?.required_skills?.join(', ') || '',
     });
     const [file, setFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [localError, setLocalError] = useState(null);
 
     const isEditMode = mode === 'edit';
-
-    useEffect(() => {
-        if (jobData && isEditMode) {
-            setFormData({
-                title: jobData.title || '',
-                location: jobData.location || '',
-                required_skills: jobData.required_skills?.join(', ') || '',
-            });
-        }
-    }, [jobData, isEditMode]);
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
@@ -45,10 +29,6 @@ const JobRoleForm = ({ mode, jobData, closeModal }) => {
         }
     };
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLocalError(null);
@@ -58,229 +38,153 @@ const JobRoleForm = ({ mode, jobData, closeModal }) => {
             setLocalError("Job title is required.");
             return;
         }
-        if (!isEditMode && !file) {
-            setLocalError("A Job Description PDF is required for creation.");
-            return;
-        }
         
         setIsSubmitting(true);
         try {
             if (isEditMode) {
-                const payload = {
+                // Prepare Payload for Update
+                const updatePayload = {
                     title: formData.title.trim(),
                     location: formData.location.trim(),
-                    required_skills: formData.required_skills.split(',').map(s => s.trim()).filter(s => s),
-                    // IMPORTANT: Missing fields like responsibilities, experience_min, etc., 
-                    // must be manually added to the payload or backend must be updated to ignore them.
+                    jd_file: file // Only sent if user picks a new file
                 };
-                await updateJobDescription(jobData.id, payload);
-
+                // jobData.id is now guaranteed by our fixed Context
+                await updateJobDescription(jobData.id, updatePayload);
             } else {
+                if (!file) {
+                    setLocalError("A Job Description PDF is required.");
+                    setIsSubmitting(false);
+                    return;
+                }
                 await addJobDescription(formData.title.trim(), file);
             }
-            
             closeModal();
         } catch (err) {
-            console.error("Job operation failed:", err);
-            setLocalError(`Operation failed. ${err.message || 'Check connection.'}`);
+            setLocalError(err.message || 'Operation failed.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit}>
-            <h3>{isEditMode ? `Edit Role: ${jobData?.title}` : 'Create New Job Role'}</h3>
+        <form onSubmit={handleSubmit} className="animate-in">
+            <h3 className="section-title">{isEditMode ? `Edit Role` : 'New Job Role'}</h3>
             
             {(localError || error) && (
-                <div style={{ color: '#842029', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>
-                    {localError || `Context Error: ${error}`}
+                <div className="error-banner">
+                    {localError || error}
                 </div>
             )}
 
-            {/* Job Title Input */}
             <div className="form-group">
-                <label className="form-label">Job Title / Role Name</label>
+                <label className="input-label">Job Title</label>
                 <input 
                     type="text" 
                     className="form-input" 
-                    name="title"
                     value={formData.title} 
-                    onChange={handleChange} 
+                    onChange={(e) => setFormData({...formData, title: e.target.value})} 
                     required
-                    disabled={isSubmitting}
                 />
             </div>
             
-            {/* Location Input (Example Metadata) */}
              <div className="form-group">
-                <label className="form-label">Location</label>
+                <label className="input-label">Location</label>
                 <input 
                     type="text" 
                     className="form-input" 
-                    name="location"
                     value={formData.location} 
-                    onChange={handleChange} 
-                    disabled={isSubmitting}
-                />
-            </div>
-            
-            {/* Required Skills Input (Example Metadata) */}
-             <div className="form-group">
-                <label className="form-label">Required Skills (Comma separated)</label>
-                <input 
-                    type="text" 
-                    className="form-input" 
-                    name="required_skills"
-                    value={formData.required_skills} 
-                    onChange={handleChange} 
-                    disabled={isSubmitting}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})} 
+                    placeholder="e.g. Remote, NYC"
                 />
             </div>
 
-
-            {/* File Upload (Required for Create, Optional for Edit) */}
-            {!isEditMode && (
-                <div className="form-group">
-                    <label className="form-label">Upload Job Description (PDF)</label>
-                    <div 
-                        className="file-upload-box"
-                        style={{ border: '2px dashed #cbd5e1', padding: '20px', textAlign: 'center', cursor: 'pointer' }}
-                        onClick={() => document.getElementById('file-input').click()}
-                    >
-                        <input 
-                            type="file" 
-                            id="file-input" 
-                            accept=".pdf" 
-                            onChange={handleFileChange} 
-                            style={{ display: 'none' }}
-                            disabled={isSubmitting}
-                        />
-                        {file ? (
-                            <p style={{ color: '#0f5132', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <FileText size={18} style={{ marginRight: '8px' }} /> {file.name}
-                            </p>
-                        ) : (
-                            <p style={{ color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <UploadCloud size={24} style={{ marginRight: '8px' }} /> Click to upload PDF
-                            </p>
-                        )}
-                    </div>
+            <div className="form-group">
+                <label className="input-label">
+                    {isEditMode ? 'Replace JD File (Optional)' : 'Upload JD (PDF)'}
+                </label>
+                <div className="upload-zone" onClick={() => document.getElementById('f-up').click()}>
+                    <UploadCloud size={24} />
+                    <p>{file ? file.name : 'Click to select PDF'}</p>
+                    <input id="f-up" type="file" accept=".pdf" hidden onChange={handleFileChange} />
                 </div>
-            )}
+            </div>
             
-            <button 
-                type="submit" 
-                className="btn btn-primary" 
-                disabled={isSubmitting || !formData.title.trim() || (!isEditMode && !file)}
-                style={{ width: '100%', marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            >
-                {isSubmitting ? <Loader2 className="spin-anim" size={18} /> : <Plus size={18} />}
-                {isSubmitting ? 'Saving Role...' : isEditMode ? 'Save Changes' : 'Create Role'}
+            <button type="submit" className="primary-btn" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="spin" /> : (isEditMode ? 'Update Role' : 'Create Role')}
             </button>
         </form>
     );
 };
 
-
-// --- Main Job Descriptions Component ---
+// --- Main Component ---
 const JobDescriptions = () => {
-    const { jobDescriptions, getJobRoleDetails, loading, fetchJobs } = useRecruiter();
-
+    const { jobDescriptions, getJobRoleDetails, deleteJobDescription, loading, fetchJobs } = useRecruiter();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('create'); 
     const [selectedJob, setSelectedJob] = useState(null); 
+    const [isDeleting, setIsDeleting] = useState(null);
 
-    useEffect(() => {
-        fetchJobs();
-    }, [fetchJobs]);
+    useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-    const handleEditClick = async (jobId) => {
+    const handleEdit = async (jobId) => {
         setModalMode('edit');
         setIsModalOpen(true);
         setSelectedJob(null); 
-        
         try {
             const details = await getJobRoleDetails(jobId);
             setSelectedJob(details); 
-        } catch (err) { 
-            console.error("Failed to load job details for editing:", err); 
-            setIsModalOpen(false);
+        } catch (err) { setIsModalOpen(false); }
+    };
+
+    const handleDelete = async (job) => {
+        if (window.confirm(`Delete "${job.title}"?`)) {
+            setIsDeleting(job.id);
+            try { await deleteJobDescription(job.id); } 
+            catch (err) { alert(err.message); } 
+            finally { setIsDeleting(null); }
         }
     };
-    
-    const openCreateModal = () => {
-        setModalMode('create');
-        setSelectedJob(null);
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setSelectedJob(null);
-    };
-
 
     return (
-        <div className="job-descriptions container">
-            <h1 className="page-title">Job Descriptions</h1>
-            <button className="btn btn-primary" onClick={openCreateModal}>
-                <Plus size={18} style={{ marginRight: '8px' }}/> Add New Role
-            </button>
+        <div className="job-container">
+            <div className="flex-header">
+                <h1 className="page-title">Job Descriptions</h1>
+                <button className="primary-btn-sm" onClick={() => { setModalMode('create'); setIsModalOpen(true); }}>
+                    <Plus size={18} /> Add Role
+                </button>
+            </div>
 
-            <div className="job-list" style={{ marginTop: '20px' }}>
-                {loading ? (
-                    <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Loading roles...</p>
+            <div className="job-list-grid">
+                {loading && jobDescriptions.length === 0 ? (
+                    <div className="loader-box"><Loader2 className="spin" /></div>
                 ) : jobDescriptions.length === 0 ? (
-                    <p style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>
-                        No job roles defined yet. Add one to get started!
-                    </p>
+                    <div className="empty-state">No roles found. Create one to start matching.</div>
                 ) : (
                     jobDescriptions.map((job) => (
-                        <div key={job.id} className="job-card card" style={{ marginBottom: '15px' }}>
-                            <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <h3 style={{ margin: 0 }}>{job.title}</h3>
-                                    <p style={{ color: '#64748b', fontSize: '0.9rem' }}>ID: {job.id}</p>
-                                </div>
-                                <div>
-                                    <button 
-                                        className="btn btn-secondary btn-sm" 
-                                        onClick={() => handleEditClick(job.id)} 
-                                        style={{ marginRight: '10px' }}
-                                    >
-                                        <Edit size={16} />
-                                    </button>
-                                    <button className="btn btn-danger btn-sm" disabled>
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
+                        <div key={job.id} className="job-card-item">
+                            <div className="job-card-info">
+                                <h3>{job.title}</h3>
+                                <span>{job.location || 'No Location'} • ID: {job.id.slice(-6)}</span>
+                            </div>
+                            <div className="job-card-actions">
+                                <button className="icon-btn edit" onClick={() => handleEdit(job.id)}><Edit size={18} /></button>
+                                <button className="icon-btn delete" onClick={() => handleDelete(job)} disabled={isDeleting === job.id}>
+                                    {isDeleting === job.id ? <Loader2 className="spin" /> : <Trash2 size={18} />}
+                                </button>
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-
-            {/* Create/Edit Job Modal */}
             {isModalOpen && (
-                <div className="modal-backdrop">
-                    <div className="modal-content" style={{ width: '450px' }}>
-                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <button className="close-btn" onClick={closeModal}><X size={20} /></button>
-                        </div>
-                        
-                        {(modalMode === 'edit' && !selectedJob) ? (
-                             <div style={{ textAlign: 'center', padding: '40px' }}>
-                                <Loader2 className="spin-anim" size={24} style={{ margin: '0 auto 10px' }}/>
-                                Loading job details...
-                             </div>
+                <div className="modal-overlay">
+                    <div className="modal-content-box">
+                        <button className="close-x" onClick={() => setIsModalOpen(false)}><X size={20}/></button>
+                        {modalMode === 'edit' && !selectedJob ? (
+                            <div className="loader-box"><Loader2 className="spin" /></div>
                         ) : (
-                            <JobRoleForm 
-                                mode={modalMode} 
-                                jobData={selectedJob} 
-                                closeModal={closeModal} 
-                            />
+                            <JobRoleForm mode={modalMode} jobData={selectedJob} closeModal={() => setIsModalOpen(false)} />
                         )}
                     </div>
                 </div>

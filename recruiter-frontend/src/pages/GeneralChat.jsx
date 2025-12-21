@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRecruiter } from '../context/RecruiterContext.jsx';
-import { Send, Loader2, User, Bot, MessageSquare } from 'lucide-react';
+import { Send, Loader2, MessageSquare, Bot, User, AlertTriangle, X } from 'lucide-react';
 
 import './GeneralChat.css'; 
 
 const GeneralChat = () => {
     const { sendChatMessage, error, setError } = useRecruiter();
     
-    // State for the chat interface
     const [messages, setMessages] = useState([
         { 
             sender: 'AI', 
-            text: 'Hello! I am your AI Assistant. How can I help you with your recruiting tasks today?',
+            text: 'Hello! I am your Recruitment AI Co-pilot. I can help you draft job descriptions, suggest interview questions, or analyze hiring trends. How can I assist you today?',
             id: 'welcome'
         }
     ]);
@@ -20,25 +19,26 @@ const GeneralChat = () => {
     const [localError, setLocalError] = useState(null);
 
     const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
 
-    // Function to scroll to the bottom of the chat window
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // Scroll whenever messages update
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages, isLoading]);
 
-    // --- Send Message Handler ---
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, []);
+
     const handleSend = async (e) => {
         e.preventDefault();
         const userMessage = input.trim();
 
         if (!userMessage || isLoading) return;
 
-        // 1. Clear input and add user message to state
         setInput('');
         setLocalError(null);
         setError(null);
@@ -48,14 +48,24 @@ const GeneralChat = () => {
         
         setIsLoading(true);
 
-        // 2. Call the API (using 'general' chat ID)
         try {
             const response = await sendChatMessage('general', userMessage);
             
-            // 3. Add AI response to state
+            // --- DEBUG LOG: Check F12 to see exactly what the backend sends ---
+            console.log("Chat API Raw Response:", response);
+
+            // --- FLEXIBLE EXTRACTION ---
+            // We check for .reply, .message, .response, or .text
+            const botText = 
+                response.reply || 
+                response.message || 
+                response.response || 
+                response.text || 
+                (typeof response === 'string' ? response : null);
+
             const aiResponse = { 
                 sender: 'AI', 
-                text: response.message || response.text || 'Sorry, I received an empty response from the AI.', 
+                text: botText || "I received the data, but the text field (reply/message) was missing.", 
                 id: Date.now() + 1 
             };
             
@@ -63,65 +73,80 @@ const GeneralChat = () => {
 
         } catch (err) {
             console.error("Chat API Error:", err);
-            setLocalError(`Failed to get response. Please check network connection or context error.`);
-            
+            setLocalError("Connection timed out. Please try again.");
         } finally {
             setIsLoading(false);
+            setTimeout(() => inputRef.current?.focus(), 100);
         }
     };
 
-    // --- Component Rendering ---
     return (
         <div className="general-chat-container container">
-            <h1 className="page-title"><MessageSquare size={32} style={{ marginRight: '10px' }}/> General AI Assistant</h1>
+            <header className="chat-header-section">
+                <h1 className="page-title">
+                    <MessageSquare size={32} className="title-icon" /> 
+                    AI Recruitment Assistant
+                </h1>
+            </header>
             
             {(localError || error) && (
-                <div className="alert alert-danger mb-4" style={{ padding: '10px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '4px' }}>
-                    {localError || `Context Error: ${error}`}
+                <div className="alert-banner error">
+                    <AlertTriangle size={18} />
+                    <span>{localError || error}</span>
+                    <X size={14} className="close-alert" onClick={() => {setLocalError(null); setError(null);}} />
                 </div>
             )}
 
             <div className="chat-window card">
                 <div className="message-history">
-                    {messages.map((msg, index) => (
+                    {messages.map((msg) => (
                         <div 
-                            key={msg.id || index} 
-                            className={`message-bubble ${msg.sender === 'User' ? 'user-message' : 'ai-message'}`}
+                            key={msg.id} 
+                            className={`message-bubble-wrapper ${msg.sender === 'User' ? 'user-align' : 'ai-align'}`}
                         >
-                            {/* Removed sender-icon div as per WhatsApp style CSS */}
-                            <div className="message-content">
-                                <p>{msg.text}</p>
-                                {/* Added simulated timestamp */}
-                                <span className="message-timestamp">
-                                    {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                            <div className="message-avatar">
+                                {msg.sender === 'User' ? <User size={16} /> : <Bot size={16} />}
+                            </div>
+                            <div className={`message-bubble ${msg.sender === 'User' ? 'user-style' : 'ai-style'}`}>
+                                <div className="message-content">
+                                    <p>{msg.text}</p>
+                                    <span className="message-timestamp">
+                                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     ))}
                     
                     {isLoading && (
-                        <div className="message-bubble ai-message loading-bubble">
-                            <div className="message-content">
-                                <Loader2 size={18} className="spin-anim" />
-                                <span style={{ marginLeft: '10px' }}>AI is typing...</span>
+                        <div className="message-bubble-wrapper ai-align">
+                            <div className="message-avatar bot-loading"><Bot size={16} /></div>
+                            <div className="message-bubble ai-style loading">
+                                <div className="typing-indicator">
+                                    <span></span><span></span><span></span>
+                                </div>
                             </div>
                         </div>
                     )}
-
                     <div ref={messagesEndRef} />
                 </div>
 
-                <form onSubmit={handleSend} className="message-input-form">
+                <form onSubmit={handleSend} className="message-input-area">
                     <input
+                        ref={inputRef}
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Ask me anything about recruiting..."
-                        className="form-input chat-input"
+                        placeholder="Type a message..."
+                        className="chat-input-field"
                         disabled={isLoading}
                     />
-                    <button type="submit" className="btn btn-primary chat-send-btn" disabled={isLoading || !input.trim()}>
-                        {isLoading ? <Loader2 size={24} className="spin-anim" /> : <Send size={24} />}
+                    <button 
+                        type="submit" 
+                        className="chat-send-button" 
+                        disabled={isLoading || !input.trim()}
+                    >
+                        {isLoading ? <Loader2 className="spin-anim" size={20} /> : <Send size={20} />}
                     </button>
                 </form>
             </div>
