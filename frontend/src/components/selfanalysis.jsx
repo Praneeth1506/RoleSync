@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useContext } from "react";
+import React, { useRef, useState, useCallback, useContext, useEffect } from "react";
 import "../components-css/Fileupload.css";
 import { ResumeContext } from "../components/ResumeProvider";
 
@@ -10,14 +10,18 @@ export default function Selfan({
 }) {
   const { uploadResume } = useContext(ResumeContext);
   const inputRef = useRef(null);
+
   const [files, setFiles] = useState([]);
   const [dragOver, setDragOver] = useState(false);
-  const [info, setInfo] = useState("");
   const [jobRole, setJobRole] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [responseData, setResponseData] = useState(null);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [showRaw, setShowRaw] = useState(false);
+
   const STORAGE_KEY = "selfAnalysisResponse_v1";
 
   const id = (f) => `${f.name}_${f.size}_${f.lastModified}`;
@@ -26,7 +30,6 @@ export default function Selfan({
     (fileList) => {
       const arr = Array.from(fileList);
       const next = [...files];
-
       arr.forEach((f) => {
         const fid = id(f);
         if (!next.some((x) => x.id === fid)) {
@@ -35,51 +38,14 @@ export default function Selfan({
           next.push({ file: f, id: fid, error: err, progress: 0 });
         }
       });
-
       setFiles(next);
+      setProgress(0);
+      setResponseData(null);
+      setInfo("");
+      setError("");
     },
     [files, maxSizeBytes]
   );
-
-  const handleInputChange = (e) => {
-    addFiles(e.target.files);
-    e.target.value = "";
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    addFiles(e.dataTransfer.files);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-  };
-
-  const removeFile = (idToRemove) => {
-    setFiles((prev) => prev.filter((f) => f.id !== idToRemove));
-  };
-
-  const clearAll = () => {
-    setFiles([]);
-    setInfo("");
-    setResponseData(null);
-    setError(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      // ignore
-    }
-  };
 
   const friendlySize = (n) => {
     if (n < 1024) return `${n} B`;
@@ -88,118 +54,120 @@ export default function Selfan({
     return `${Math.round(n / (1024 * 1024 * 1024))} GB`;
   };
 
-  // Build FormData, send request with Bearer token from localStorage.accessToken
+  const removeFile = (idToRemove) => setFiles((prev) => prev.filter((f) => f.id !== idToRemove));
+  const clearAll = () => {
+    setFiles([]);
+    setProgress(0);
+    setResponseData(null);
+    setError("");
+    setInfo("");
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+  };
+
+  /* ---------------- Upload & Analyse ---------------- */
+
   const uploadAll = async () => {
-    setError(null);
+    if (files.length === 0 && !jobRole.trim()) {
+      setError("Please select a file or enter a job role");
+      return;
+    }
+
+    setError("");
+    setInfo("Uploading...");
+    setUploading(true);
+    setProgress(0);
     setResponseData(null);
 
-    // Check token
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      setError("No access token found in localStorage under key 'accessToken'.");
+      setError("Access token missing");
+      setUploading(false);
+      setInfo("");
       return;
     }
 
-    // If no file and no jobRole, warn
-    if (files.length === 0 && (!jobRole || jobRole.trim() === "")) {
-      setInfo("Please choose a file or enter a job role.");
-      return;
-    }
-
-    setLoading(true);
-    setInfo("Uploading...");
     try {
       const fd = new FormData();
-      // attach first file (or all files as 'files[]' depending on backend)
-      if (files.length > 0) {
-        // If backend expects single file field 'file' use fd.append('file', files[0].file)
-        // We will attach all files as 'files' for safety and also attach first as 'file'
-        files.forEach((f, i) => {
-          fd.append("files", f.file); // many backends accept 'files' array
-        });
-        // also send single file field
-        fd.append("file", files[0].file);
-      }
-
-      // attach job role / text input
-      if (jobRole && jobRole.trim() !== "") {
+      if (files.length > 0) fd.append("file", files[0].file);
+      if (jobRole.trim()) {
         fd.append("job_role", jobRole.trim());
-        fd.append("text", jobRole.trim()); // add a fallback key name
+        fd.append("text", jobRole.trim());
       }
 
-      // If you want to show that resume was uploaded to context also call uploadResume
-      if (files.length > 0 && typeof uploadResume === "function") {
-        // uploadResume expects a single file object (as you used before)
-        try {
-          uploadResume(files[0]); // passive UI context update
-        } catch (ctxErr) {
-          // ignore; context upload is optional
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", endpoint);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            setResponseData(data);
+            setInfo("Analysis received.");
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch {}
+          } catch {
+            setError("Failed to parse response");
+            setInfo("");
+          }
+          if (files.length > 0) uploadResume?.(files[0]);
+        } else {
+          setError(`Upload failed: ${xhr.status}`);
+          setInfo("");
         }
-      }
+        setUploading(false);
+      };
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          // DO NOT set Content-Type when sending FormData — the browser sets the boundary automatically
-          Authorization: `Bearer ${token}`,
-          // Accept: "application/json" // optional
-        },
-        body: fd,
-      });
+      xhr.onerror = () => {
+        setError("Upload failed");
+        setInfo("");
+        setUploading(false);
+      };
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server returned ${res.status}: ${text}`);
-      }
-
-      // Expecting JSON
-      const data = await res.json();
-      setResponseData(data);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (e) {
-        console.warn("Failed to persist analysis to localStorage", e);
-      }
-      setInfo("Analysis received.");
+      xhr.send(fd);
     } catch (err) {
-      setError(err.message || "Upload failed.");
+      setError("Upload failed");
       setInfo("");
-    } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
-  React.useEffect(() => {
+
+  /* ---------------- Load previous analysis ---------------- */
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        setResponseData(parsed);
+        setResponseData(JSON.parse(raw));
         setInfo("Loaded previous analysis from localStorage.");
       }
-    } catch (e) {
-      // ignore parse errors
-      console.warn("Failed to load persisted analysis", e);
-    }
+    } catch {}
   }, []);
-  // helper to render structured response (based on sample you supplied)
+
+  /* ---------------- Render analysis ---------------- */
+
   const renderAnalysis = (d) => {
     if (!d) return null;
-
-    // defensive access with fallbacks
     const ats = d.ats_score ?? d.ATS_score ?? null;
     const match = d.match_score ?? null;
-    const skillGap = d.skill_gap ?? d.skill_gap ?? d.skillGap ?? [];
+    const skillGap = d.skill_gap ?? d.skillGap ?? [];
     const feedback = d.feedback ?? {};
     const learning = d.learning_path ?? {};
     const timestamp = d.timestamp ?? d.time ?? null;
-    
+
     return (
       <div className="analysis-card" style={{ marginTop: 18 }}>
         <h3>Self-analysis result</h3>
-
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           {ats != null && (
-            <div className="metric" style={{ padding: 10, borderRadius: 8, boxShadow: "var(--shadow, 0 1px 4px rgba(0,0,0,0.06))", minWidth: 120 }}>
+            <div className="metric" style={{ padding: 10, borderRadius: 8, minWidth: 120 }}>
               <div style={{ fontSize: 12, color: "#6b7280" }}>ATS Score</div>
               <div style={{ fontSize: 22, fontWeight: 700 }}>{ats}</div>
             </div>
@@ -218,7 +186,6 @@ export default function Selfan({
           )}
         </div>
 
-        {/* Summary */}
         {feedback.summary && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 700 }}>Summary</div>
@@ -226,7 +193,6 @@ export default function Selfan({
           </div>
         )}
 
-        {/* Skill gaps */}
         {Array.isArray(skillGap) && skillGap.length > 0 && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 700 }}>Skill gaps</div>
@@ -240,7 +206,6 @@ export default function Selfan({
           </div>
         )}
 
-        {/* Recommendations */}
         {Array.isArray(feedback.recommendations) && feedback.recommendations.length > 0 && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 700 }}>Recommendations</div>
@@ -252,7 +217,6 @@ export default function Selfan({
           </div>
         )}
 
-        {/* Learning path */}
         {learning.next_steps && Array.isArray(learning.next_steps) && learning.next_steps.length > 0 && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 700 }}>Learning path — next steps</div>
@@ -264,14 +228,10 @@ export default function Selfan({
           </div>
         )}
 
-        {timestamp && (
-          <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-            Result timestamp: {new Date(timestamp).toLocaleString() || timestamp}
-          </div>
-        )}
+        {timestamp && <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>Result timestamp: {new Date(timestamp).toLocaleString()}</div>}
 
         <div style={{ marginTop: 12 }}>
-          <button type="button" onClick={() => setShowRaw((s) => !s)} style={{ cursor: "pointer" }}>
+          <button type="button" onClick={() => setShowRaw((s) => !s)}>
             {showRaw ? "Hide raw JSON" : "Show raw JSON"}
           </button>
         </div>
@@ -285,116 +245,66 @@ export default function Selfan({
     );
   };
 
+  /* ---------------- Render UI ---------------- */
+
   return (
     <div className="fd-wrapper fd-full">
-
       <div className="sa-layout">
-        {/* LEFT: upload + job role (dark panel) */}
+        {/* LEFT PANEL */}
         <div className="sa-left">
-          {/* move page title into left panel */}
           <h2 className="fd-title">Self Analysis</h2>
           <p className="fd-sub">Job Description (PDF or .docx)</p>
+
           <div
             className={`fd-dropzone ${dragOver ? "drag-over" : ""}`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            role="button"
-            onClick={() => inputRef.current && inputRef.current.click()}
+            onDrop={(e) => {
+              e.preventDefault();
+              addFiles(e.dataTransfer.files);
+              setDragOver(false);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onClick={() => inputRef.current?.click()}
           >
-            <input
-              ref={inputRef}
-              className="fd-input"
-              type="file"
-              accept={accept}
-              multiple={multiple}
-              onChange={handleInputChange}
-            />
-
+            <input ref={inputRef} className="fd-input" type="file" accept={accept} multiple={multiple} onChange={(e) => addFiles(e.target.files)} />
             <div className="fd-inner">
-              <button
-                type="button"
-                className="fd-choose"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  inputRef.current && inputRef.current.click();
-                }}
-              >
-                <span className="fd-choose-icon">📁</span>
-                <span className="fd-choose-text">Choose File</span>
-                <span className="fd-choose-arrow">▾</span>
-              </button>
+              <button type="button" className="fd-choose">📁 Choose File</button>
+              {uploading && <div>Uploading… {progress}%</div>}
+            </div>
+          </div>
 
-              <div className="fd-note" style={{ fontSize: "11px" }}>
-                Max file size {friendlySize(maxSizeBytes)}.
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
+            {files.map((f) => (
+              <div key={f.id} className="fd-file">
+                <div>{f.file.name} ({friendlySize(f.file.size)})</div>
+                {f.error && <div style={{ color: "crimson" }}>{f.error}</div>}
               </div>
-
-              <div className="fd-draghint">or drag & drop files here</div>
-            </div>
+            ))}
           </div>
 
-          <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", marginTop: "18px" }}>
-            <div className="fd-files" style={{ flex: 1 }}>
-              {files.length === 0 ? (
-                <div className="fd-empty" style={{ padding: "6px 10px", fontSize: "12px", textAlign: "left" }}>
-                  No files selected
-                </div>
-              ) : (
-                files.map((f) => (
-                  <div className="fd-file" key={f.id}>
-                    <div className="fd-file-left">
-                      <div className="fd-file-name">{f.file.name}</div>
-                      <div className="fd-file-meta" style={{ fontSize: "11px" }}>
-                        {friendlySize(f.file.size)}
-                      </div>
-                      {f.error && <div className="fd-file-error">{f.error}</div>}
-                    </div>
-
-                    <div className="fd-file-right">
-                      <button className="fd-remove" onClick={() => removeFile(f.id)} title="Remove file">
-                        ✕
-                      </button>
-
-                      <div className="fd-progress-outer" aria-hidden>
-                        <div className="fd-progress" style={{ width: `${f.progress}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="fd-actions" style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "120px" }}>
-              <button className="fd-clear" onClick={clearAll} disabled={files.length === 0 && !jobRole} style={{ width: "100%" }}>
-                Clear
-              </button>
-              <button className="fd-upload" onClick={uploadAll} disabled={loading} style={{ width: "100%" }}>
-                {loading ? "Uploading..." : "Upload"}
-              </button>
-            </div>
+          <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+            <button className="fd-upload" onClick={uploadAll} disabled={uploading}>{uploading ? "Uploading…" : "Upload & Analyse"}</button>
+            <button className="fd-clear" onClick={clearAll}>Clear</button>
           </div>
 
-          <div style={{ marginTop: "18px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: 600, color: "inherit" }}>Enter Job role</label>
-            <input
-              value={jobRole}
-              onChange={(e) => setJobRole(e.target.value)}
-              type="text"
-              placeholder="Job role (e.g., ML Engineer)"
-              className="sa-job-input"
-            />
+          <div style={{ marginTop: 18 }}>
+            <label>Enter Job role</label>
+            <input value={jobRole} onChange={(e) => setJobRole(e.target.value)} className="sa-job-input" placeholder="Job role (optional)" />
           </div>
 
-          <div style={{ marginTop: 12 }}>
-            <div className="fd-info" style={{ color: error ? "crimson" : "inherit" }}>
-              {error ? `Error: ${error}` : info}
-            </div>
-          </div>
+          {error && <div style={{ color: "crimson", marginTop: 8 }}>{error}</div>}
+          {info && <div style={{ color: "green", marginTop: 8 }}>{info}</div>}
         </div>
 
-        {/* RIGHT: results (scrollable) */}
+        {/* RIGHT PANEL */}
         <div className="sa-right">
-          <div className="sa-results-container">{renderAnalysis(responseData)}</div>
+          <div className="sa-results-container">
+            {!responseData && !uploading && <div>Upload the file to analyse</div>}
+            {responseData && renderAnalysis(responseData)}
+          </div>
         </div>
       </div>
     </div>
