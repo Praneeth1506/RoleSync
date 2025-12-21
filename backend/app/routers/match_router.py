@@ -81,6 +81,8 @@ def generate_rejection_feedback(parsed, job, match_score):
     prompt = f"""
 Write polite rejection feedback with improvement advice.
 
+Candidate Name: {parsed.get("name")}
+Company Name: {job.get("company_name", "Our Company")}
 Job Title: {job.get('title')}
 Required Skills: {job.get('required_skills')}
 Candidate Skills: {parsed.get('skills')}
@@ -244,11 +246,11 @@ async def shortlist_batch(
             })
         else:
             feedback = generate_rejection_feedback(parsed, job, score)
-            FeedbackDB.create_draft(
-                candidate["_id"],
-                current_user["_id"],
-                job_role_id,
-                feedback
+            draft = FeedbackDB.create_draft(
+                candidate_id=candidate["_id"],
+                recruiter_id=current_user["_id"],
+                job_role_id=job_role_id,
+                feedback_text=feedback
             )
 
             rejected.append({
@@ -257,6 +259,7 @@ async def shortlist_batch(
                 "name": parsed.get("name"),
                 "match_score": score,
                 "ats_score": ats,
+                "draft_id": str(draft["_id"]),
                 "feedback": feedback
             })
 

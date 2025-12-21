@@ -13,7 +13,7 @@ def feedback_create_draft(
     candidate_id: str = Form(...),
     job_role_id: str = Form(...),
     feedback_text: str = Form(...),
-    current_user = Depends(require_role("recruiter"))
+    current_user=Depends(require_role("recruiter"))
 ):
     draft = FeedbackDB.create_draft(
         candidate_id=candidate_id,
@@ -21,7 +21,15 @@ def feedback_create_draft(
         job_role_id=job_role_id,
         feedback_text=feedback_text
     )
-    return {"ok": True, "draft": draft}
+
+    return {
+        "ok": True,
+        "draft_id": str(draft["_id"]),   
+        "candidate_id": candidate_id,
+        "job_role_id": job_role_id,
+        "status": draft.get("status", "draft")
+    }
+
 
 
 @router.get("/pending")
