@@ -100,6 +100,19 @@ Plain text only.
     except Exception:
         return "Your profile does not currently meet the role requirements."
 
+def generate_shortlist_feedback(parsed, job, score):
+    return f"""
+Dear {parsed.get('name')},
+
+We are pleased to inform you that your profile has been shortlisted for the role of {job.get('title')}.
+
+Your skills in {", ".join(parsed.get("skills", [])[:5])} align well with the requirements of this position, and your overall match score is {score}%.
+
+Our recruitment team will review your profile further and reach out with next steps shortly.
+
+Best regards,
+{job.get("company_name", "Recruitment Team")}
+""".strip()
 
 
 @router.post("/single")
@@ -229,11 +242,13 @@ async def shortlist_batch(
         CandidateDB.add_analysis(candidate["_id"], job_role_id, analysis)
 
         if score >= MATCH_THRESHOLD:
-            FeedbackDB.create_draft(
+            shortlist_feedback = generate_shortlist_feedback(parsed, job, score)
+
+            draft = FeedbackDB.create_draft(
                 candidate_id=candidate["_id"],
                 recruiter_id=current_user["_id"],
                 job_role_id=job_role_id,
-                feedback_text=""
+                feedback_text=shortlist_feedback
             )
 
             shortlisted.append({
@@ -242,8 +257,11 @@ async def shortlist_batch(
                 "name": parsed.get("name"),
                 "match_score": score,
                 "ats_score": ats,
+                "draft_id": str(draft["_id"]),
+                "feedback": shortlist_feedback,
                 "explanation": generate_shortlist_explanation(parsed, job, score)
             })
+
         else:
             feedback = generate_rejection_feedback(parsed, job, score)
             draft = FeedbackDB.create_draft(
