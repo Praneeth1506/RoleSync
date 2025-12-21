@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRecruiter } from '../context/RecruiterContext.jsx';
 import { Send, Loader2, MessageSquare, Bot, User, AlertTriangle, X } from 'lucide-react';
-
 import './GeneralChat.css'; 
 
 const GeneralChat = () => {
@@ -10,7 +9,7 @@ const GeneralChat = () => {
     const [messages, setMessages] = useState([
         { 
             sender: 'AI', 
-            text: 'Hello! I am your Recruitment AI Co-pilot. I can help you draft job descriptions, suggest interview questions, or analyze hiring trends. How can I assist you today?',
+            text: 'Hello! I am your **Recruitment AI Co-pilot**. I can help you draft job descriptions, suggest interview questions, or analyze hiring trends. How can I assist you today?',
             id: 'welcome'
         }
     ]);
@@ -20,6 +19,16 @@ const GeneralChat = () => {
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+
+    // --- CHAT FORMATTING HELPER ---
+    const formatMessage = (text) => {
+        if (!text) return "";
+        // Convert **bold** to <b> tags
+        let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        // Handle basic bullet points
+        formatted = formatted.replace(/^\*\s/gm, '• ');
+        return <div dangerouslySetInnerHTML={{ __html: formatted }} style={{ whiteSpace: 'pre-wrap' }} />;
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,11 +60,7 @@ const GeneralChat = () => {
         try {
             const response = await sendChatMessage('general', userMessage);
             
-            // --- DEBUG LOG: Check F12 to see exactly what the backend sends ---
-            console.log("Chat API Raw Response:", response);
-
-            // --- FLEXIBLE EXTRACTION ---
-            // We check for .reply, .message, .response, or .text
+            // Extract text field safely
             const botText = 
                 response.reply || 
                 response.message || 
@@ -65,14 +70,13 @@ const GeneralChat = () => {
 
             const aiResponse = { 
                 sender: 'AI', 
-                text: botText || "I received the data, but the text field (reply/message) was missing.", 
+                text: botText || "I received the data, but the response text was empty.", 
                 id: Date.now() + 1 
             };
             
             setMessages(prev => [...prev, aiResponse]);
 
         } catch (err) {
-            console.error("Chat API Error:", err);
             setLocalError("Connection timed out. Please try again.");
         } finally {
             setIsLoading(false);
@@ -109,7 +113,8 @@ const GeneralChat = () => {
                             </div>
                             <div className={`message-bubble ${msg.sender === 'User' ? 'user-style' : 'ai-style'}`}>
                                 <div className="message-content">
-                                    <p>{msg.text}</p>
+                                    {/* USE THE FORMATTER HERE */}
+                                    {formatMessage(msg.text)}
                                     <span className="message-timestamp">
                                         {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
