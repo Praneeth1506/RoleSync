@@ -29,7 +29,6 @@ export const RecruiterProvider = ({ children }) => {
   // --- AUTH & INITIALIZATION ---
   const logout = () => {
     localStorage.removeItem('accessToken');
-    // Clear header from Axios
     delete api.defaults.headers.common['Authorization'];
     setUserProfile(null);
     setJobDescriptions([]);
@@ -51,7 +50,6 @@ export const RecruiterProvider = ({ children }) => {
       });
     } catch (err) {
       console.error("Profile fetch error:", err);
-      // If profile fetch fails with 401, it's a dead session
       if (err.response?.status === 401) logout();
     }
   };
@@ -79,10 +77,9 @@ export const RecruiterProvider = ({ children }) => {
   const login = async (email, password) => {
     setError(null);
     try {
-      // FIX 422: FastAPI OAuth2 expects application/x-www-form-urlencoded
       const formData = new URLSearchParams();
       formData.append('grant_type', 'password');
-      formData.append('username', email); // FastAPI uses 'username' key for the unique identifier
+      formData.append('username', email);
       formData.append('password', password);
 
       const response = await api.post('/auth/login', formData, {
@@ -91,8 +88,6 @@ export const RecruiterProvider = ({ children }) => {
 
       const token = response.data.access_token;
       localStorage.setItem('accessToken', token);
-      
-      // Apply token immediately to the API instance
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       await fetchProfile();
@@ -187,9 +182,12 @@ export const RecruiterProvider = ({ children }) => {
     const response = await api.post('/match/shortlist_batch', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+    // This now returns { shortlisted: [...], rejected: [...], chat_id: "..." }
+    // Shortlisted candidates in this response now contain 'draft_id'
     return response.data; 
   };
 
+  // --- CHAT SYSTEM ---
   const sendChatMessage = async (chatId, message) => {
     const url = chatId === 'general' ? '/chat/general' : `/chat/contextual/${chatId}`;
     const response = await api.post(url, { message });
@@ -202,31 +200,74 @@ export const RecruiterProvider = ({ children }) => {
   };
 
   // --- FEEDBACK SYSTEM ---
-  const createFeedbackDraft = async (candidateId, jobRoleId, feedbackText) => {
-    const formData = new URLSearchParams();
-    formData.append('candidate_id', candidateId);
-    formData.append('job_role_id', jobRoleId);
-    formData.append('feedback_text', feedbackText);
-    const response = await api.post('/feedback/draft', formData);
-    return response.data;
+  const fetchPendingFeedback = async () => {
+    const response = await api.get('/feedback/pending');
+    return response.data; 
   };
+
+  const createFeedbackDraft = async (candidateId, jobRoleId, feedbackText) => {
+    const params = new URLSearchParams();
+    params.append('candidate_id', candidateId);
+    params.append('job_role_id', jobRoleId);
+    params.append('feedback_text', feedbackText);
+
+    try {
+      const response = await api.post('/feedback/draft', params, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      return response.data; 
+    } catch (err) {
+      console.error("Draft Creation Error Detail:", err.response?.data?.detail);
+      throw new Error(parseError(err));
+    }
+  };
+
+  const editFeedbackDraft = async (draftId, newText) => {
+    try {
+        // FastAPI expects Form data because of 'new_text: str = Form(...)'
+        const formData = new URLSearchParams();
+        formData.append('new_text', newText);
+
+        const response = await api.put(`/feedback/edit/${draftId}`, formData, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        
+        return response.data;
+    } catch (err) {
+        // This helper will now show the actual 500 error if it persists
+        console.error("Draft Edit Error:", err.response?.data || err.message);
+        throw new Error(parseError(err));
+    }
+};
 
   const approveFeedback = async (draftId) => {
-    await api.post(`/feedback/approve/${draftId}`);
-    return true;
+    try {
+      const response = await api.post(`/feedback/approve/${draftId}`);
+      console.log("Feedback Approved Successfully");
+      return response.data;
+    } catch (err) {
+      console.error("Approval Error Detail:", err.response?.data?.detail);
+      throw new Error(parseError(err));
+    }
   };
 
-  // --- INITIAL SESSION CHECK (FIX 401) ---
+  const rejectRemainingCandidates = async (jobRoleId) => {
+    try {
+      const response = await api.post(`/feedback/reject_remaining/${jobRoleId}`);
+      return response.data;
+    } catch (err) {
+      throw new Error(parseError(err));
+    }
+  };
+
+  // --- INITIAL SESSION CHECK ---
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('accessToken');
       if (token) {
-        // Set header FIRST before calling any async functions
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         try {
-          // Await these properly
-          await fetchProfile();
-          await fetchJobs();
+          await Promise.all([fetchProfile(), fetchJobs()]);
         } catch (err) {
           console.error("Auth check failed, clearing session.");
           logout();
@@ -242,7 +283,8 @@ export const RecruiterProvider = ({ children }) => {
     login, logout, fetchJobs, fetchProfile,
     jobDescriptions, addJobDescription, deleteJobDescription, updateJobDescription, getJobRoleDetails,
     updateProfile, matchSingle, aiBatchProcess, 
-    createFeedbackDraft, approveFeedback, sendChatMessage, fetchChatList
+    fetchPendingFeedback, createFeedbackDraft, editFeedbackDraft, approveFeedback, rejectRemainingCandidates,
+    sendChatMessage, fetchChatList
   };
 
   return (

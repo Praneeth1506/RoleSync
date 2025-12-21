@@ -49,6 +49,15 @@ def feedback_edit_draft(
         raise HTTPException(404, "Draft not found")
 
     updated = FeedbackDB.update_draft(draft_id, new_text)
+    
+    # --- ADD THIS FIX ---
+    if updated:
+        updated["_id"] = str(updated["_id"])
+        updated["recruiter_id"] = str(updated["recruiter_id"])
+        # If there are other IDs like candidate_id or job_role_id, stringify them too:
+        if "candidate_id" in updated: updated["candidate_id"] = str(updated["candidate_id"])
+        if "job_role_id" in updated: updated["job_role_id"] = str(updated["job_role_id"])
+    
     return {"ok": True, "draft": updated}
 
 

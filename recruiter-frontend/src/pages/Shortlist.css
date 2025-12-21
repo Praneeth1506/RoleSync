@@ -4,7 +4,7 @@
 
 .sl-dashboard {
   display: flex;
-  /* Adjusting for a standard 64px-70px Navbar */
+  /* Syncs height with standard navbars to prevent double scrolls */
   height: calc(100vh - 70px);
   background-color: var(--bg);
   overflow: hidden;
@@ -49,7 +49,7 @@
   background: #f0f7ff;
 }
 
-/* Middle Button Container */
+/* Middle Button Container for logical flow */
 .sl-action-container {
   margin: 20px 0;
   padding: 20px 0;
@@ -145,7 +145,6 @@
   justify-content: flex-end;
 }
 
-/* Custom Table Buttons */
 .btn-table {
   padding: 5px 12px;
   font-size: 0.75rem;
@@ -156,26 +155,10 @@
   transition: 0.2s;
 }
 
-.btn-reason {
-  background: #fff;
-  color: #444;
-}
-
-.btn-reason:hover {
-  background: #f8f9fa;
-  border-color: #ccc;
-}
-
-.btn-feedback {
-  background: var(--primary);
-  color: white;
-  border: none;
-}
-
-.btn-feedback.sent {
-  background: #28a745 !important;
-  cursor: default;
-}
+.btn-reason { background: #fff; color: #444; }
+.btn-reason:hover { background: #f8f9fa; border-color: #ccc; }
+.btn-feedback { background: var(--primary); color: white; border: none; }
+.btn-feedback.sent { background: #28a745 !important; cursor: default; }
 
 .sl-score {
   font-weight: 800;
@@ -208,25 +191,20 @@
   background: #fcfdfd;
 }
 
-.sl-chat-wait-msg {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #aaa;
-  font-size: 0.85rem;
-  text-align: center;
-  gap: 15px;
-}
-
 .sl-bubble {
   max-width: 85%;
   padding: 12px 16px;
   border-radius: 12px;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
   margin-bottom: 12px;
-  line-height: 1.5;
+  /* Preserves AI formatting (\n newlines) */
+  white-space: pre-wrap; 
+  word-wrap: break-word;
+}
+
+.sl-bubble b, .sl-bubble strong {
+  font-weight: 700;
 }
 
 .sl-bubble.ai { 
@@ -250,7 +228,7 @@
   gap: 10px;
 }
 
-/* --- 4. MODALS (OVERLAYS) --- */
+/* --- 4. MODALS (OVERLAYS & PREVIEWS) --- */
 .sl-modal-overlay {
   position: fixed;
   inset: 0;
@@ -263,7 +241,7 @@
 }
 
 .sl-modal-card {
-  width: 500px;
+  width: 550px;
   max-width: 90%;
   max-height: 85vh;
   overflow-y: auto;
@@ -277,6 +255,21 @@
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid #eee;
+}
+
+.sl-fb-preview-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 15px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-bottom: 15px;
+}
+
+.sl-fb-preview-box b {
+  color: var(--primary);
 }
 
 .sl-label-small {
@@ -301,9 +294,7 @@
 }
 
 /* --- ANIMATIONS & UTILS --- */
-.animate-spin {
-  animation: slSpin 1s linear infinite;
-}
+.animate-spin { animation: slSpin 1s linear infinite; }
 
 @keyframes slSpin {
   from { transform: rotate(0deg); }
@@ -322,7 +313,7 @@
   max-width: 150px;
 }
 
-/* Custom Scrollbar for Chat/Lists */
+/* Custom Scrollbars */
 .sl-chat-viewport::-webkit-scrollbar,
 .sl-sidebar-left::-webkit-scrollbar,
 .sl-workspace::-webkit-scrollbar {
