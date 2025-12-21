@@ -3,12 +3,11 @@ import api from '../api/axios';
 
 const RecruiterContext = createContext();
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useRecruiter = () => useContext(RecruiterContext);
 
 export const RecruiterProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [jobDescriptions, setJobDescriptions] = useState([]);
 
@@ -16,10 +15,13 @@ export const RecruiterProvider = ({ children }) => {
   const parseError = (err) => {
     if (err.response && err.response.data && err.response.data.detail) {
       const detail = err.response.data.detail;
-      if (Array.isArray(detail)) {
-        return detail.map(d => `Field: ${d.loc.slice(-1)}, Error: ${d.msg}`).join('; '); 
+      if (typeof detail === 'string' && detail.toLowerCase().includes('email')) {
+        return "Missing candidate contact info.";
       }
-      return typeof detail === 'string' ? detail : "An unexpected validation error occurred.";
+      if (Array.isArray(detail)) {
+        return detail.map(d => `Field: ${d.loc.slice(-1)}, Error: ${d.msg}`).join('; ');
+      }
+      return typeof detail === 'string' ? detail : "An unexpected error occurred.";
     }
     return err.message || "An unexpected network error occurred.";
   };
@@ -27,82 +29,74 @@ export const RecruiterProvider = ({ children }) => {
   // --- AUTH & INITIALIZATION ---
   const logout = () => {
     localStorage.removeItem('accessToken');
+    // Clear header from Axios
+    delete api.defaults.headers.common['Authorization'];
     setUserProfile(null);
     setJobDescriptions([]);
   };
 
   const fetchProfile = async () => {
     try {
-      const response = await api.get('/recruiter/me');
-      const userData = response.data.profile; 
-      if (!userData) {
-          throw new Error("Recruiter profile data is missing from response.");
-      }
+      const [authRes, recruiterRes] = await Promise.all([
+        api.get('/auth/me'),
+        api.get('/recruiter/me')
+      ]);
+      const profileData = recruiterRes.data.profile || {};
       setUserProfile({
-          ...userData,
-          company_name: userData.company_name || '', 
+        name: typeof authRes.data === 'string' ? authRes.data : (authRes.data.name || "Recruiter"),
+        email: authRes.data.email || "Email not found",
+        ...profileData,
+        company_name: profileData.company_name || "",
+        linked_id: profileData._id || profileData.id
       });
     } catch (err) {
       console.error("Profile fetch error:", err);
-      throw err; 
+      // If profile fetch fails with 401, it's a dead session
+      if (err.response?.status === 401) logout();
     }
   };
 
   const fetchJobs = useCallback(async () => {
     try {
       const response = await api.get('/jobrole/list');
-      const jobList = response.data.job_roles; 
+      const jobList = response.data.job_roles;
       if (!Array.isArray(jobList)) {
-          console.error("API /jobrole/list did not return a list. Response:", response.data);
-          setJobDescriptions([]); 
-          return;
+        setJobDescriptions([]);
+        return;
       }
       const mappedJobs = jobList.map(j => ({
-          id: j._id || j.id, 
-          title: j.role_name || j.title, 
-          description: j.description,
-          fileName: "View Details", 
-          fileUrl: null 
+        id: j._id || j.id || j.job_role_id,
+        title: j.role_name || j.title,
+        location: j.location || '',
+        description: j.description || ''
       }));
       setJobDescriptions(mappedJobs);
     } catch (err) {
       console.error("Fetch jobs error", err);
-      throw err;
     }
   }, []);
 
   const login = async (email, password) => {
     setError(null);
     try {
+      // FIX 422: FastAPI OAuth2 expects application/x-www-form-urlencoded
       const formData = new URLSearchParams();
       formData.append('grant_type', 'password');
-      formData.append('username', email);
+      formData.append('username', email); // FastAPI uses 'username' key for the unique identifier
       formData.append('password', password);
+
       const response = await api.post('/auth/login', formData, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
+
       const token = response.data.access_token;
       localStorage.setItem('accessToken', token);
+      
+      // Apply token immediately to the API instance
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
       await fetchProfile();
-      return true;
-    } catch (err) {
-      setError(parseError(err)); 
-      return false;
-    }
-  };
-
-  const register = async (fullName, companyName, email, password, linkedin = "", phone = "") => {
-    setError(null);
-    try {
-      await api.post('/auth/signup/recruiter', {
-        name: fullName, 
-        company_name: companyName,
-        email: email,
-        password: password,
-        linkedin: linkedin,
-        phone: phone
-      });
+      await fetchJobs();
       return true;
     } catch (err) {
       setError(parseError(err));
@@ -110,28 +104,13 @@ export const RecruiterProvider = ({ children }) => {
     }
   };
 
-  const verifyAccount = async (email, otp) => {
-    setError(null);
-    try {
-      const trimmedEmail = String(email || '').trim();
-      const verificationCode = String(otp || '').trim();
-      await api.post('/auth/verify', null, { 
-        params: { email: trimmedEmail, code: verificationCode }
-      });
-      return true;
-    } catch (err) {
-      setError(parseError(err));
-      return false;
-    }
-  };
-
+  // --- JOB ROLE ACTIONS ---
   const getJobRoleDetails = async (id) => {
     try {
-        const response = await api.get(`/jobrole/get/${id}`);
-        return response.data;
+      const response = await api.get(`/jobrole/get/${id}`);
+      return { ...response.data, id };
     } catch (err) {
-        setError(parseError(err));
-        throw new Error(parseError(err));
+      throw new Error(parseError(err));
     }
   };
 
@@ -139,212 +118,138 @@ export const RecruiterProvider = ({ children }) => {
     setError(null);
     try {
       const formData = new FormData();
-      formData.append('jd_file', file); 
-      formData.append('title', title); 
+      formData.append('jd_file', file);
+      formData.append('title', title);
       await api.post('/jobrole/create', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      await fetchJobs(); 
+      await fetchJobs();
       return true;
     } catch (err) {
-      setError(parseError(err));
       throw new Error(parseError(err));
     }
   };
 
-  const updateJobDescription = async (id, updatedData) => {
+  const updateJobDescription = async (jobId, updatedData) => {
+    if (!jobId) throw new Error("Job ID is missing.");
     setError(null);
     try {
-        const payload = {
-            title: updatedData.title,
-            location: updatedData.location || "", 
-            required_skills: updatedData.required_skills || [],
-            preferred_skills: updatedData.preferred_skills || [],
-            responsibilities: updatedData.responsibilities || [],
-            tech_stack: updatedData.tech_stack || [],
-            experience_min: updatedData.experience_min || "Entry",
-        };
-        await api.put(`/jobrole/update/${id}`, payload);
-        await fetchJobs(); 
-        return true;
+      const formData = new FormData();
+      formData.append('title', updatedData.title);
+      if (updatedData.location) formData.append('location', updatedData.location);
+      if (updatedData.jd_file) formData.append('jd_file', updatedData.jd_file);
+
+      await api.put(`/jobrole/update/${jobId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      await fetchJobs();
+      return true;
     } catch (err) {
-      setError(parseError(err));
+      throw new Error(parseError(err));
+    }
+  };
+
+  const deleteJobDescription = async (id) => {
+    try {
+      await api.delete(`/jobrole/delete/${id}`);
+      await fetchJobs();
+      return true;
+    } catch (err) {
       throw new Error(parseError(err));
     }
   };
 
   const updateProfile = async (profileData) => {
-    setError(null);
     try {
-      const profileId = userProfile?.linked_id;
-      if (!profileId) {
-        throw new Error("User profile link ID is missing. Cannot update.");
-      }
-      const response = await api.patch(`/recruiter/update/${profileId}`, profileData); 
-      await fetchProfile(); 
-      return response.data;
-    } catch (err) {
-      setError(parseError(err));
-      throw new Error(parseError(err));
-    }
-  };
-
-  // --- SHORTLISTING ACTIONS ---
-  
-  const matchSingle = async (jobId, file) => {
-    setError(null);
-    try {
-        const formData = new FormData();
-        formData.append('file', file); 
-        formData.append('job_role_id', jobId); 
-        const response = await api.post('/match/score_single', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return response.data;
-    } catch (err) {
-        setError(parseError(err));
-        throw new Error(parseError(err));
-    }
-  };
-
-  // FIXED: Robust Batch Processing to ensure multiple results return
-  const aiBatchProcess = async (jobRoleId, filesArray) => {
-    setError(null);
-    try {
-        if (!Array.isArray(filesArray) || filesArray.length === 0) {
-            throw new Error("Please select at least one PDF file.");
-        }
-        
-        const formData = new FormData();
-        formData.append('job_role_id', jobRoleId);
-        
-        // Ensure all files are appended to the same key 'files'
-        filesArray.forEach((file) => {
-            formData.append('files', file); 
-        });
-
-        const response = await api.post('/match/shortlist_batch', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-
-        // The response.data should contain the list of results
-        return response.data; 
-    } catch (err) {
-        const msg = parseError(err);
-        setError(msg);
-        throw new Error(msg);
-    }
-  };
-  
-  const uploadResume = async () => { /* Placeholder */ };
-  const matchBatch = async () => { /* Placeholder */ };
-
-  // --- FEEDBACK & CHAT ---
-  
-  const createFeedbackDraft = async (candidateId, jobRoleId, feedbackText) => {
-    setError(null);
-    try {
-        const formData = new URLSearchParams(); 
-        formData.append('candidate_id', candidateId); 
-        formData.append('job_role_id', jobRoleId);
-        formData.append('feedback_text', feedbackText);
-
-        const response = await api.post('/feedback/draft', formData, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        });
-        return response.data;
-    } catch (err) {
-        setError(parseError(err));
-        throw new Error(parseError(err));
-    }
-  };
-  
-  const fetchPendingFeedback = async () => {
-    try {
-      const response = await api.get('/feedback/pending');
-      return response.data;
-    } catch (err) {
-      throw new Error(parseError(err));
-    }
-  };
-  
-  const editFeedbackDraft = async (draftId, newText) => {
-    setError(null);
-    try {
-        const formData = new URLSearchParams();
-        formData.append('new_text', newText);
-        const response = await api.put(`/feedback/edit/${draftId}`, formData, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        });
-        return response.data;
-    } catch (err) {
-        setError(parseError(err));
-        throw new Error(parseError(err));
-    }
-  };
-
-  const approveFeedback = async (draftId) => {
-    setError(null);
-    try {
-      await api.post(`/feedback/approve/${draftId}`);
+      const profileId = userProfile?.linked_id || userProfile?._id;
+      if (!profileId) throw new Error("Profile ID missing.");
+      await api.patch(`/recruiter/update/${profileId}`, profileData);
+      await fetchProfile();
       return true;
     } catch (err) {
-      setError(parseError(err));
       throw new Error(parseError(err));
     }
+  };
+
+  // --- SHORTLISTING & AI MATCHING ---
+  const matchSingle = async (jobId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('job_role_id', jobId);
+    const response = await api.post('/match/score_single', formData);
+    return response.data;
+  };
+
+  const aiBatchProcess = async (jobRoleId, filesArray) => {
+    const formData = new FormData();
+    formData.append('job_role_id', jobRoleId);
+    filesArray.forEach((file) => formData.append('files', file));
+    const response = await api.post('/match/shortlist_batch', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data; 
   };
 
   const sendChatMessage = async (chatId, message) => {
-    try {
-      const url = chatId === 'general' ? '/chat/general' : `/chat/contextual/${chatId}`;
-      const response = await api.post(url, { message });
-      return response.data;
-    } catch (err) {
-      throw new Error(parseError(err)); 
-    }
+    const url = chatId === 'general' ? '/chat/general' : `/chat/contextual/${chatId}`;
+    const response = await api.post(url, { message });
+    return response.data;
   };
 
   const fetchChatList = async () => {
-    try {
-      const response = await api.get('/chat/list');
-      return response.data;
-    } catch (err) {
-      throw new Error(parseError(err));
-    }
+    const response = await api.get('/chat/list');
+    return response.data;
   };
 
+  // --- FEEDBACK SYSTEM ---
+  const createFeedbackDraft = async (candidateId, jobRoleId, feedbackText) => {
+    const formData = new URLSearchParams();
+    formData.append('candidate_id', candidateId);
+    formData.append('job_role_id', jobRoleId);
+    formData.append('feedback_text', feedbackText);
+    const response = await api.post('/feedback/draft', formData);
+    return response.data;
+  };
+
+  const approveFeedback = async (draftId) => {
+    await api.post(`/feedback/approve/${draftId}`);
+    return true;
+  };
+
+  // --- INITIAL SESSION CHECK (FIX 401) ---
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('accessToken');
       if (token) {
+        // Set header FIRST before calling any async functions
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         try {
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`; 
+          // Await these properly
           await fetchProfile();
+          await fetchJobs();
         } catch (err) {
+          console.error("Auth check failed, clearing session.");
           logout();
         }
       }
-      setLoading(false); 
+      setLoading(false);
     };
     checkAuth();
   }, [fetchJobs]);
 
   const value = {
     userProfile, isAuthenticated: !!userProfile, loading, error, setError,
-    login, register, verifyAccount, logout,
-    jobDescriptions, addJobDescription, updateJobDescription, getJobRoleDetails, fetchJobs, 
-    updateProfile, 
-    uploadResume, matchSingle, matchBatch,
-    aiBatchProcess, 
-    createFeedbackDraft, fetchPendingFeedback, editFeedbackDraft, approveFeedback,
-    sendChatMessage, fetchChatList
+    login, logout, fetchJobs, fetchProfile,
+    jobDescriptions, addJobDescription, deleteJobDescription, updateJobDescription, getJobRoleDetails,
+    updateProfile, matchSingle, aiBatchProcess, 
+    createFeedbackDraft, approveFeedback, sendChatMessage, fetchChatList
   };
 
   return (
     <RecruiterContext.Provider value={value}>
       {loading ? (
-        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: '#0056b3' }}>
-          Loading Session...
+        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: '#2563eb', fontWeight: '600' }}>
+          Syncing Workspace...
         </div>
       ) : (
         children

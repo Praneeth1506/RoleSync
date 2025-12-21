@@ -1,115 +1,268 @@
-/* --- Job Description Specific Styles --- */
+/* JobDescription.css */
+
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --bg-subtle: #f8fafc;
+  --border-color: #e2e8f0;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.job-container {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Header Section */
+.flex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
 .page-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary); /* Uses base primary color */
-    margin-bottom: 25px;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
 }
 
-/* --- Job Card List Styling --- */
-.job-card {
-    /* Base card style is inherited, adding margin for spacing */
-    margin-bottom: 15px;
+/* Job List Grid */
+.job-list-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.job-card .card-body {
-    /* Overrides default card padding if necessary, but primarily handles layout */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px;
+.job-card-item {
+  background: white;
+  border: 1px solid var(--border-color);
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
 }
 
-.job-card h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0;
+.job-card-item:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
 }
 
-/* --- Action Button Adjustments --- */
-.btn-secondary {
-    background-color: #f1f5f9; /* Light gray */
-    color: var(--text); 
-    border: 1px solid #ddd;
-}
-.btn-secondary:hover:not(:disabled) {
-    background-color: #e2e8f0; 
+.job-card-info h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  color: var(--text-main);
 }
 
-.btn-danger {
-    background-color: #dc3545; /* A standard Bootstrap-like red */
-    color: white;
-}
-.btn-danger:hover:not(:disabled) {
-    background-color: #c82333;
+.job-card-info span {
+  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 
-/* Small button styling for icons */
-.btn-sm {
-    padding: 6px 10px;
-    font-size: 0.875rem;
+/* Buttons */
+.primary-btn, .primary-btn-sm {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* --- File Upload Box (Unique to the Form) --- */
-.file-upload-box {
-    border: 2px dashed #94a3b8; /* slate-400 */
-    padding: 20px;
-    text-align: center;
-    border-radius: 6px;
-    background-color: #fafafa;
-    cursor: pointer;
-    transition: background-color 0.2s;
+.primary-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
 }
 
-.file-upload-box:hover {
-    background-color: #f0f0f0;
+.primary-btn-sm {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  gap: 0.5rem;
+  font-size: 0.875rem;
 }
 
-/* --- Modal Styles (Since they are complex structures) --- */
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+.primary-btn:hover, .primary-btn-sm:hover {
+  background-color: var(--primary-hover);
 }
 
-.modal-content {
-    background-color: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
-    width: 450px; /* Specific width for the form modal */
+.primary-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
 }
 
-.close-btn {
-    background: none;
-    border: none;
-    color: #6c757d;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    transition: color 0.2s;
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
 }
 
-.close-btn:hover {
-    color: var(--text);
+.icon-btn.edit:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background-color: #eff6ff;
 }
 
-/* --- Utility/Animation --- */
-.spin-anim {
-    animation: spin 1s linear infinite;
+.icon-btn.delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background-color: #fef2f2;
+}
+
+.job-card-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content-box {
+  background: white;
+  width: 100%;
+  max-width: 450px;
+  padding: 2rem;
+  border-radius: 1rem;
+  position: relative;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+}
+
+.close-x {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* Form Styles */
+.section-title {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  color: var(--text-main);
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.input-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.625rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.form-input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+/* File Upload Zone */
+.upload-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-subtle);
+  transition: all 0.2s;
+}
+
+.upload-zone:hover {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+
+.upload-zone p {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Error Banner */
+.error-banner {
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  color: var(--danger);
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+/* Loader & Empty States */
+.loader-box {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-in {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
