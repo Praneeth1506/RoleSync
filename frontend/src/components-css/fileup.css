@@ -1,0 +1,79 @@
+/* Scoped ONLY to FileUpload wrapper */
+.fd-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.fd-full {
+  max-width: 100%;
+}
+
+.sa-layout {
+  width: 100%;
+}
+
+.sa-center {
+  display: flex;
+  justify-content: center;
+}
+
+.sa-left {
+  width: 100%;
+}
+
+/* Ensure dropzone centers properly */
+.fd-dropzone {
+  margin: 12px auto;
+  width: 100%;
+}
+
+/* Prevent oversized layout in sidebar */
+.fd-side-info {
+  display: none;
+}
+
+/* Buttons align nicely */
+.fd-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Info text */
+.fd-info {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.resume-nav-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.resume-nav-btn:hover {
+  background: #f9fafb;
+}
+
+.resume-download {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.resume-download:hover {
+  text-decoration: underline;
+}
+
+.resume-muted {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6b7280;
+}

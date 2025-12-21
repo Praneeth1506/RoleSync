@@ -449,10 +449,7 @@ export default function Chatbot() {
           )}
         </div>
 
-        <div className="sidebar-footer">
-          <div className="plan">Premium · <strong>Pro</strong></div>
-          <button className="btn link" onClick={() => alert("Account sidebar")}>Account</button>
-        </div>
+        
       </aside>
 
       <main className="main-col">
@@ -467,15 +464,24 @@ export default function Chatbot() {
           <div className="chat-actions">
             <button className="btn ghost" onClick={() => clearConversation(activeConvId)} disabled={!activeConvId}>Clear</button>
             <button className="btn ghost" onClick={() => {
-              const payload = { conversation: activeConv, messages: messagesByConv[activeConvId] || [] };
-              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `${activeConvId || "conversation"}.json`;
-              a.click();
-              URL.revokeObjectURL(url);
-            }} disabled={!activeConvId}>Export</button>
+  const msgs = messagesByConv[activeConvId] || [];
+  if (msgs.length === 0) {
+    alert("No messages to export!");
+    return;
+  }
+
+  // Convert messages to plain text
+  const txtContent = msgs.map(m => `${m.from.toUpperCase()}: ${m.text}`).join("\n");
+
+  const blob = new Blob([txtContent], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${activeConvId || "conversation"}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}} disabled={!activeConvId}>Export</button>
+
           </div>
         </div>
 
@@ -529,14 +535,11 @@ export default function Chatbot() {
         </footer>
       </main>
 
-      <aside className="right-col">
+      
         
 
-        <div className="right-card muted">
-          <h4>Tips</h4>
-          <p>Try prompts like: <em>"Summarize this resume"</em> or <em>"Prepare 8 behavioral & 6 technical questions for Senior Backend"</em>.</p>
-        </div>
-      </aside>
+        
+      
     </div>
   );
 }
