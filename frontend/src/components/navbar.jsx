@@ -52,7 +52,17 @@ export default function Navbar({ onAccountClick = () => {} }) {
 
     // Listen for updates from other components (sidebar save)
     function onUserUpdated(e) {
-      const u = e?.detail || null;
+      // Accept event.detail when provided, otherwise read from localStorage
+      let u = e?.detail || null;
+      if (!u) {
+        try {
+          const raw = localStorage.getItem("user");
+          u = raw ? JSON.parse(raw) : null;
+        } catch (err) {
+          u = null;
+        }
+      }
+
       if (u) {
         const display = u.name || u.email || "";
         setUserName(display);
@@ -65,14 +75,33 @@ export default function Navbar({ onAccountClick = () => {} }) {
       setIsSignedIn(false);
     }
 
+    function onStorageEvent(e) {
+      if (e.key === "user") {
+        try {
+          const u = e.newValue ? JSON.parse(e.newValue) : null;
+          if (u) {
+            setUserName(u.name || u.email || "");
+            setIsSignedIn(true);
+          } else {
+            setUserName("");
+            setIsSignedIn(false);
+          }
+        } catch (err) {
+          // ignore parse errors
+        }
+      }
+    }
+
     window.addEventListener("user-updated", onUserUpdated);
     window.addEventListener("user-logged-out", onUserLoggedOut);
+    window.addEventListener("storage", onStorageEvent);
 
     checkSignInStatus();
 
     return () => {
       window.removeEventListener("user-updated", onUserUpdated);
       window.removeEventListener("user-logged-out", onUserLoggedOut);
+      window.removeEventListener("storage", onStorageEvent);
     };
   }, []);
 

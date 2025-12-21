@@ -7,6 +7,8 @@ import React, {
   useEffect,
 } from "react";
 import { ResumeContext } from "./ResumeProvider";
+import "../components-css/fileup.css"
+// `uploading` state must live inside the component (hooks can't be called at module level)
 
 export default function FileUpload({
   multiple = true,
@@ -16,6 +18,7 @@ export default function FileUpload({
   const { setResume } = useContext(ResumeContext);
   const inputRef = useRef(null);
   const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [info, setInfo] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -95,7 +98,9 @@ export default function FileUpload({
       setInfo("No files to upload.");
       return;
     }
-
+    setUploading(true);          // ✅ START uploading
+    setInfo("Uploading...");     // ✅ show message
+    setUploadSuccess(false);
     const file = files[0].file; // current behaviour: upload first file only
     try {
       const token = localStorage.getItem("accessToken");
@@ -125,11 +130,13 @@ export default function FileUpload({
         data = await resp.clone().json();
       } catch (jsonErr) {
         // Not JSON — we'll still handle status codes and show friendly messages
+        setUploading(false); 
         data = null;
       }
 
       if (!resp.ok) {
         // Prefer a short friendly message. If backend gives `message`, show it briefly.
+         setUploading(false); 
         const serverMessage =
           (data && (data.message || data.error || data.detail)) || null;
         console.error("Upload failed:", { status: resp.status, data });
@@ -146,19 +153,38 @@ export default function FileUpload({
         null;
       const resumeFilename = (data && data.filename) || file.name;
 
-      // Build stored object; if URL missing we still store a minimal object
+      // Build stored object; if server URL present we'll persist it.
       const resumeObj = {
         url: resumeUrl,
         file: { name: resumeFilename, size: file.size },
         uploaded_at: new Date().toISOString(),
       };
 
-      // persist for other parts of app (sidebar)
+      // If backend didn't return a usable URL, create a temporary object URL
+      // for immediate download in this session. We avoid persisting that
+      // object URL to localStorage (it's not valid after a reload).
+      let resumeForState = { ...resumeObj };
+      let resumeForStorage = { file: resumeObj.file, uploaded_at: resumeObj.uploaded_at };
+      if (resumeUrl) {
+        resumeForState.url = resumeUrl;
+        resumeForStorage.url = resumeUrl;
+      } else {
+        try {
+          const localUrl = URL.createObjectURL(file);
+          resumeForState.url = localUrl;
+          resumeForState.__local = true;
+        } catch (e) {
+          // fall back to no url
+          resumeForState.url = null;
+        }
+      }
+
+      // persist only the storage object (no transient object URLs)
       try {
-        localStorage.setItem("resume", JSON.stringify(resumeObj));
-        if (typeof setResume === "function") setResume(resumeObj);
+        localStorage.setItem("resume", JSON.stringify(resumeForStorage));
+        if (typeof setResume === "function") setResume(resumeForState);
         window.dispatchEvent(
-          new CustomEvent("resume-updated", { detail: resumeObj })
+          new CustomEvent("resume-updated", { detail: resumeForState })
         );
       } catch (e) {
         console.warn("Failed to persist resume to localStorage:", e);

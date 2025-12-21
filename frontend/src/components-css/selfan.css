@@ -1,0 +1,41 @@
+.selfan-container {
+  display: flex;
+  gap: 20px;
+}
+
+.selfan-left {
+  width: 35%;
+}
+
+.selfan-right {
+  width: 65%;
+  border: 1px dashed #ccc;
+  padding: 20px;
+  min-height: 300px;
+}
+
+.upload-box.success {
+  border: 2px solid green;
+}
+
+.upload-box.error {
+  border: 2px solid red;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #ddd;
+  margin-top: 8px;
+}
+
+.progress {
+  height: 100%;
+  background: #4caf50;
+}
+
+.placeholder {
+  text-align: center;
+  color: #777;
+  font-size: 18px;
+  margin-top: 100px;
+}
