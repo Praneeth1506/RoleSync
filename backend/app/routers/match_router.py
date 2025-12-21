@@ -10,20 +10,22 @@ from openai import OpenAI
 from ..auth.auth import require_role
 from ..database.candidate import CandidateDB
 from ..database.jobrole import JobRoleDB
-from ..database.invite import InviteDB
 from ..database.recruiter_chat import RecruiterChatDB
 from ..database.feedback import FeedbackDB
 
 from ..ai.resume_parser import parse_resume
 from ..ai.match_score import compute_match_score
 from ..ai.ats_scoring import compute_ats_score
-from ..ai.semantic_fit import explain_semantic_fit
 
 router = APIRouter(prefix="/match", tags=["match"])
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 MATCH_THRESHOLD = 45
 
+
+# -------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------
 
 def _get_or_create_shortlist_chat(recruiter_id: str, job_role: dict):
     for c in RecruiterChatDB.list_for_user(recruiter_id) or []:
@@ -48,6 +50,37 @@ def _openai_json(prompt: str) -> dict:
     s, e = text.find("{"), text.rfind("}")
     return json.loads(text[s:e + 1])
 
+
+def fill_feedback_placeholders(
+    text: str,
+    *,
+    candidate_name: str,
+    job_title: str,
+    company: str,
+    recruiter_name: str
+):
+    filled = (
+        text
+        .replace("[Candidate's Name]", candidate_name)
+        .replace("[Your Name]", recruiter_name)
+        .replace("[Your Job Title]", job_title)
+        .replace("[Our Company]", company)
+        .replace("Our Company", company)
+    )
+
+    signature = f"""
+
+Best regards,
+{recruiter_name}
+{job_title} – {company}
+"""
+
+    return filled.strip() + signature
+
+
+# -------------------------------------------------------------------
+# LLM content
+# -------------------------------------------------------------------
 
 def generate_shortlist_explanation(parsed, job, match_score):
     prompt = f"""
@@ -82,7 +115,7 @@ def generate_rejection_feedback(parsed, job, match_score):
 Write polite rejection feedback with improvement advice.
 
 Candidate Name: {parsed.get("name")}
-Company Name: {job.get("company_name", "Our Company")}
+Company Name: {job.get("company", "Our Company")}
 Job Title: {job.get('title')}
 Required Skills: {job.get('required_skills')}
 Candidate Skills: {parsed.get('skills')}
@@ -100,6 +133,7 @@ Plain text only.
     except Exception:
         return "Your profile does not currently meet the role requirements."
 
+
 def generate_shortlist_feedback(parsed, job, score):
     return f"""
 Dear {parsed.get('name')},
@@ -109,11 +143,12 @@ We are pleased to inform you that your profile has been shortlisted for the role
 Your skills in {", ".join(parsed.get("skills", [])[:5])} align well with the requirements of this position, and your overall match score is {score}%.
 
 Our recruitment team will review your profile further and reach out with next steps shortly.
-
-Best regards,
-{job.get("company_name", "Recruitment Team")}
 """.strip()
 
+
+# -------------------------------------------------------------------
+# Single candidate
+# -------------------------------------------------------------------
 
 @router.post("/single")
 def match_single_candidate(
@@ -139,19 +174,29 @@ def match_single_candidate(
 
     match = compute_match_score(parsed, job)
     score = match["score"]
-    ats = compute_ats_score(
-        parsed.get("parsed_text", ""),
-        job.get("required_skills", [])
-    )
+    ats_text = parsed.get("parsed_text") or parsed.get("raw_text", "")
+    if not ats_text.strip():
+        ats_text = " ".join(parsed.get("skills", []))
+
+    ats = compute_ats_score(ats_text, job.get("required_skills", []))
 
     chat = _get_or_create_shortlist_chat(current_user["_id"], job)
 
     if score >= MATCH_THRESHOLD:
-        FeedbackDB.create_draft(
+        raw = generate_shortlist_feedback(parsed, job, score)
+        feedback = fill_feedback_placeholders(
+            raw,
+            candidate_name=parsed.get("name", "Candidate"),
+            job_title=job.get("title", "the role"),
+            company=job.get("company", "the company"),
+            recruiter_name=current_user.get("name", "Hiring Team")
+        )
+
+        draft = FeedbackDB.create_draft(
             candidate_id=candidate["_id"],
             recruiter_id=current_user["_id"],
             job_role_id=job_role_id,
-            feedback_text=""
+            feedback_text=feedback
         )
 
         return {
@@ -160,12 +205,22 @@ def match_single_candidate(
             "candidate_id": str(candidate["_id"]),
             "match_score": score,
             "ats_score": ats,
+            "draft_id": str(draft["_id"]),
+            "feedback": feedback,
             "explanation": generate_shortlist_explanation(parsed, job, score),
             "chat_id": str(chat["_id"])
         }
 
-    feedback = generate_rejection_feedback(parsed, job, score)
-    FeedbackDB.create_draft(
+    raw = generate_rejection_feedback(parsed, job, score)
+    feedback = fill_feedback_placeholders(
+        raw,
+        candidate_name=parsed.get("name", "Candidate"),
+        job_title=job.get("title", "the role"),
+        company=job.get("company", "the company"),
+        recruiter_name=current_user.get("name", "Hiring Team")
+    )
+
+    draft = FeedbackDB.create_draft(
         candidate_id=candidate["_id"],
         recruiter_id=current_user["_id"],
         job_role_id=job_role_id,
@@ -175,12 +230,17 @@ def match_single_candidate(
     return {
         "ok": True,
         "status": "rejected",
-        "candidate_id": candidate["_id"],
+        "candidate_id": str(candidate["_id"]),
         "match_score": score,
         "ats_score": ats,
+        "draft_id": str(draft["_id"]),
         "feedback": feedback
     }
 
+
+# -------------------------------------------------------------------
+# Batch shortlist
+# -------------------------------------------------------------------
 
 @router.post("/shortlist_batch")
 async def shortlist_batch(
@@ -222,12 +282,13 @@ async def shortlist_batch(
 
         match = compute_match_score(parsed, job)
         score = match["score"]
-        ats = compute_ats_score(
-            parsed.get("parsed_text", ""),
-            job.get("required_skills", [])
-        )
+        ats_text = parsed.get("parsed_text") or parsed.get("raw_text", "")
+        if not ats_text.strip():
+            ats_text = " ".join(parsed.get("skills", []))
 
-        analysis = {
+        ats = compute_ats_score(ats_text, job.get("required_skills", []))
+
+        CandidateDB.add_analysis(candidate["_id"], job_role_id, {
             "candidate_id": candidate["_id"],
             "job_role_id": job_role_id,
             "name": parsed.get("name"),
@@ -237,18 +298,23 @@ async def shortlist_batch(
             "skills": parsed.get("skills", []),
             "experience_years": parsed.get("experience_years", 0),
             "timestamp": datetime.datetime.utcnow()
-        }
-
-        CandidateDB.add_analysis(candidate["_id"], job_role_id, analysis)
+        })
 
         if score >= MATCH_THRESHOLD:
-            shortlist_feedback = generate_shortlist_feedback(parsed, job, score)
+            raw = generate_shortlist_feedback(parsed, job, score)
+            feedback = fill_feedback_placeholders(
+                raw,
+                candidate_name=parsed.get("name", "Candidate"),
+                job_title=job.get("title", "the role"),
+                company=job.get("company", "the company"),
+                recruiter_name=current_user.get("name", "Hiring Team")
+            )
 
             draft = FeedbackDB.create_draft(
                 candidate_id=candidate["_id"],
                 recruiter_id=current_user["_id"],
                 job_role_id=job_role_id,
-                feedback_text=shortlist_feedback
+                feedback_text=feedback
             )
 
             shortlisted.append({
@@ -258,12 +324,20 @@ async def shortlist_batch(
                 "match_score": score,
                 "ats_score": ats,
                 "draft_id": str(draft["_id"]),
-                "feedback": shortlist_feedback,
+                "feedback": feedback,
                 "explanation": generate_shortlist_explanation(parsed, job, score)
             })
 
         else:
-            feedback = generate_rejection_feedback(parsed, job, score)
+            raw = generate_rejection_feedback(parsed, job, score)
+            feedback = fill_feedback_placeholders(
+                raw,
+                candidate_name=parsed.get("name", "Candidate"),
+                job_title=job.get("title", "the role"),
+                company=job.get("company", "the company"),
+                recruiter_name=current_user.get("name", "Hiring Team")
+            )
+
             draft = FeedbackDB.create_draft(
                 candidate_id=candidate["_id"],
                 recruiter_id=current_user["_id"],

@@ -29,7 +29,7 @@ def get_candidate_feedback(current_user=Depends(require_role("candidate"))):
             "status": fb.get("status"),
             "created_at": fb.get("created_at"),
             "job_role": job.get("title") if job else None,
-            "company_name": recruiter.get("company_name") if recruiter else None,
+            "company_name": job.get("company") if job else None
         })
 
     return {

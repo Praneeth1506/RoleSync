@@ -10,10 +10,18 @@ export default function Feedback() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/feedback");
+      const token = localStorage.getItem("accessToken");
+      const headers = { Accept: "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("http://127.0.0.1:8000/candidate/candidate/feedback", {
+        headers,
+      });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = await res.json();
-      setItems(Array.isArray(json) ? json : [json]);
+      // backend returns { ok: true, feedback: [...] }
+      const data = json && Array.isArray(json.feedback) ? json.feedback : (Array.isArray(json) ? json : [json]);
+      setItems(data);
     } catch (err) {
       // fallback to local sample in public/feedback.json
       try {
@@ -92,47 +100,39 @@ export default function Feedback() {
           )}
 
           <div className="fb-list" aria-label="feedback list">
-            {items.map((it) => {
-              const key = it.id ?? it.timestamp ?? Math.random().toString(36).slice(2, 9);
-              return (
-                <article className="fb-item" key={key}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div className="fb-avatar" aria-hidden title={it.company || ""}>
-                      {initials(it.company || it.name)}
-                    </div>
-                  </div>
+              {items.map((it) => {
+                const key = it.feedback_id ?? it._id ?? it.id ?? Math.random().toString(36).slice(2, 9);
+                const title = it.company_name  ?? "Recruiter";
+                const sub = it.job_role ? `Role: ${it.job_role}` : null;
+                const timestamp = it.created_at ?? it.updated_at ?? null;
+                const message = it.feedback ?? it.text ?? it.message ?? "—";
 
-                  <div className="fb-item-left">
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <div>
-                        <div className="fb-item-name">{it.company ? `${it.company}` : (it.name || "Anonymous")}</div>
-                        {it.position && <div className="fb-meta">{it.position}</div>}
-                      </div>
-
-                      <div style={{ textAlign: "right", minWidth: 120 }}>
-                        <div className={statusToClass(it.status)}>{it.status || "New"}</div>
-                        <div className="fb-item-right" style={{ marginTop: 8 }}>{fmtDate(it.timestamp)}</div>
+                return (
+                  <article className="fb-item" key={key}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div className="fb-avatar" aria-hidden title={title}>
+                        {initials(String(title))}
                       </div>
                     </div>
 
-                    <div className="fb-item-msg" style={{ marginTop: 10 }}>{it.message ?? "—"}</div>
+                    <div className="fb-item-left">
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                        <div>
+                          <div className="fb-item-name">{title}</div>
+                          {sub && <div className="fb-meta">{sub}</div>}
+                        </div>
 
-                    {(it.tags?.length > 0 || it.score != null) && (
-                      <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
-                        {it.score != null && <div className="fb-meta">Score: {it.score}</div>}
-                        {Array.isArray(it.tags) && (
-                          <div style={{ display: "flex", gap: 6 }}>
-                            {it.tags.slice(0, 4).map((t, i) => (
-                              <div key={i} className="fb-tag">{t}</div>
-                            ))}
-                          </div>
-                        )}
+                        <div style={{ textAlign: "right", minWidth: 120 }}>
+                          <div className={statusToClass(it.status)}>{it.status || "New"}</div>
+                          <div className="fb-item-right" style={{ marginTop: 8 }}>{fmtDate(timestamp)}</div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+
+                      <div className="fb-item-msg" style={{ marginTop: 10 }}>{message}</div>
+                    </div>
+                  </article>
+                );
+              })}
           </div>
         </main>
 

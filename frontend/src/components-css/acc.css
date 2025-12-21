@@ -208,3 +208,51 @@
   .account-panel{ right: 12px; width: calc(100vw - 24px); border-radius: 12px; top: 12px; height: calc(100vh - 24px); }
   .account-sidebar.open .account-backdrop{ backdrop-filter: blur(3px); }
 }
+.avatar-lg {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+.account-header h2 {
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+.header-input {
+  font-size: 1.1rem;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.account-section label {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.account-section p,
+.account-section a {
+  font-size: 0.95rem;
+}
+
+.link {
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.btn.primary {
+  background: #4f46e5;
+  color: white;
+}
+
+.btn.danger {
+  background: #ef4444;
+  color: white;
+}
