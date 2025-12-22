@@ -10,7 +10,7 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="nav-brand">RecruiterAI</div>
+      <div className="nav-brand">RoleSync</div>
       <div className="nav-links">
         <NavLink to="/dashboard/assistant" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
           <MessageSquare size={18} /> Assistant
@@ -30,7 +30,7 @@ const Navbar = () => {
         style={{ cursor: 'pointer', userSelect: 'none' }}
         title="Click to Edit Profile"
       >
-         <span>{userProfile?.companyName || 'Guest'}</span>
+         <span>{userProfile?.companyName || ''}</span>
          <UserCircle size={24} />
       </div>
     </nav>

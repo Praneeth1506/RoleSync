@@ -153,19 +153,19 @@ const Shortlist = () => {
                     <div className="sl-table-responsive">
                         <table className="sl-data-table">
                             <thead>
-                                <tr><th>Name</th><th>Match</th><th style={{textAlign: 'right'}}>Actions</th></tr>
+                                <tr><th>Name</th><th>ATS Score</th><th>Match</th><th style={{textAlign: 'right'}}>Actions</th></tr>
                             </thead>
                             <tbody>
                                 {results.shortlisted.map((c, i) => (
                                     <tr key={i}>
                                         <td style={{fontWeight: '600'}}>{c.name}</td>
+                                        <td className="sl-score">{c.ats_score || 0}</td>
                                         <td className="sl-score">{c.match_score}%</td>
                                         <td className="sl-cell-actions">
                                             <button className="btn-table btn-reason" onClick={() => setSelectedExplanation(c)}>Reason</button>
                                             <button 
                                                 className={`btn-table btn-feedback ${sendingFb[c.candidate_id] || ''}`} 
                                                 onClick={() => {
-                                                    // Reset "sent" status to allow re-sending if modal is re-opened
                                                     setSendingFb(prev => ({ ...prev, [c.candidate_id]: null }));
                                                     setSelectedFeedback({ 
                                                         candidate: c, 
@@ -189,12 +189,13 @@ const Shortlist = () => {
                     <div className="sl-table-responsive">
                         <table className="sl-data-table">
                             <thead>
-                                <tr><th>Name</th><th>Match</th><th style={{textAlign: 'right'}}>Actions</th></tr>
+                                <tr><th>Name</th><th>ATS Score</th><th>Match</th><th style={{textAlign: 'right'}}>Actions</th></tr>
                             </thead>
                             <tbody>
                                 {results.rejected.map((c, i) => (
                                     <tr key={i}>
                                         <td style={{fontWeight: '600'}}>{c.name}</td>
+                                        <td className="sl-score" style={{color: '#dc3545'}}>{c.ats_score || 0}</td>
                                         <td className="sl-score" style={{color: '#dc3545'}}>{c.match_score}%</td>
                                         <td className="sl-cell-actions">
                                             <button 
@@ -217,7 +218,7 @@ const Shortlist = () => {
             </main>
 
             <aside className="sl-sidebar-right">
-                <div className="sl-chat-header"><Bot size={18} /> AI Co-Pilot</div>
+                <div className="sl-chat-header"><Bot size={18} /> AI Assistant</div>
                 <div className="sl-chat-viewport">
                     {!chatId ? <div className="sl-chat-wait-msg">Analysis required to activate chat.</div> : 
                     messages.map((m, i) => (
@@ -242,6 +243,9 @@ const Shortlist = () => {
                             <X size={20} className="pointer" onClick={() => setSelectedExplanation(null)} />
                         </div>
                         <div className="sl-modal-body">
+                            <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                <strong>ATS Score: </strong> {selectedExplanation.ats_score || 0}
+                            </div>
                             <label className="sl-label-small">CORE STRENGTHS</label>
                             <ul className="sl-strength-list">
                                 {selectedExplanation.explanation?.strengths?.map((s, i) => <li key={i}>{s}</li>) || <li>No data available</li>}
