@@ -267,10 +267,7 @@ const Login = () => {
 
                     {viewState !== 'verify' && (
                         <>
-                            <div className="divider"><span>OR CONTINUE WITH</span></div>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <button type="button" className="social-btn">Google</button>
-                                <button type="button" className="social-btn">LinkedIn</button>
+                            <div style={{ display: 'flex', gap: '12px' }}>      
                             </div>
                         </>
                     )}
