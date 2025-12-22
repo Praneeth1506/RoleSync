@@ -99,6 +99,40 @@ export const RecruiterProvider = ({ children }) => {
     }
   };
 
+  // --- REGISTRATION ACTION ---
+  const register = async (fullName, companyName, email, password, linkedin = "", phone = "") => {
+    setError(null);
+    try {
+      await api.post('/auth/signup/recruiter', {
+        name: fullName, 
+        company_name: companyName,
+        email: email,
+        password: password,
+        linkedin: linkedin,
+        phone: phone
+      });
+      return true;
+    } catch (err) {
+      setError(parseError(err));
+      return false;
+    }
+  };
+
+  const verifyAccount = async (email, otp) => {
+    setError(null);
+    try {
+      const trimmedEmail = String(email || '').trim();
+      const verificationCode = String(otp || '').trim();
+      await api.post('/auth/verify', null, { 
+        params: { email: trimmedEmail, code: verificationCode }
+      });
+      return true;
+    } catch (err) {
+      setError(parseError(err));
+      return false;
+    }
+  };
+
   // --- JOB ROLE ACTIONS ---
   const getJobRoleDetails = async (id) => {
     try {
@@ -182,8 +216,6 @@ export const RecruiterProvider = ({ children }) => {
     const response = await api.post('/match/shortlist_batch', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-    // This now returns { shortlisted: [...], rejected: [...], chat_id: "..." }
-    // Shortlisted candidates in this response now contain 'draft_id'
     return response.data; 
   };
 
@@ -224,7 +256,6 @@ export const RecruiterProvider = ({ children }) => {
 
   const editFeedbackDraft = async (draftId, newText) => {
     try {
-        // FastAPI expects Form data because of 'new_text: str = Form(...)'
         const formData = new URLSearchParams();
         formData.append('new_text', newText);
 
@@ -234,11 +265,10 @@ export const RecruiterProvider = ({ children }) => {
         
         return response.data;
     } catch (err) {
-        // This helper will now show the actual 500 error if it persists
         console.error("Draft Edit Error:", err.response?.data || err.message);
         throw new Error(parseError(err));
     }
-};
+  };
 
   const approveFeedback = async (draftId) => {
     try {
@@ -280,7 +310,7 @@ export const RecruiterProvider = ({ children }) => {
 
   const value = {
     userProfile, isAuthenticated: !!userProfile, loading, error, setError,
-    login, logout, fetchJobs, fetchProfile,
+    login, register, verifyAccount, logout, fetchJobs, fetchProfile,
     jobDescriptions, addJobDescription, deleteJobDescription, updateJobDescription, getJobRoleDetails,
     updateProfile, matchSingle, aiBatchProcess, 
     fetchPendingFeedback, createFeedbackDraft, editFeedbackDraft, approveFeedback, rejectRemainingCandidates,

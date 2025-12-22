@@ -9,7 +9,7 @@ const GeneralChat = () => {
     const [messages, setMessages] = useState([
         { 
             sender: 'AI', 
-            text: 'Hello! I am your **Recruitment AI Co-pilot**. I can help you draft job descriptions, suggest interview questions, or analyze hiring trends. How can I assist you today?',
+            text: 'Hello! I am your **Recruitment Assistant**. I can help you draft job descriptions, suggest interview questions, or analyze hiring trends. How can I assist you today?',
             id: 'welcome'
         }
     ]);
@@ -89,7 +89,7 @@ const GeneralChat = () => {
             <header className="chat-header-section">
                 <h1 className="page-title">
                     <MessageSquare size={32} className="title-icon" /> 
-                    AI Recruitment Assistant
+                    Recruitment Assistant
                 </h1>
             </header>
             
