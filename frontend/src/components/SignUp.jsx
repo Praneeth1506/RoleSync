@@ -92,7 +92,7 @@ export default function SignUp() {
         } else {
           alert("Sign up successful! Please sign in with your credentials.");
         }
-        navigate("/signin");
+        navigate("/");
       } else {
         setErrors({ submit: "Unexpected response from server." });
       }
@@ -232,7 +232,7 @@ export default function SignUp() {
             Already have an account?{" "}
             <button
               type="button"
-              onClick={() => navigate("/signin")}
+              onClick={() => navigate("/")}
               className="link-btn"
             >
               Sign In

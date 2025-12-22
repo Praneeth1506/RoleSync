@@ -173,9 +173,6 @@ def verify_account(email: str, code: str):
     return {"verified": True}
 
 
-# ---------------------------------------------------
-# LOGIN (COMMON)
-# ---------------------------------------------------
 @router.post("/login", response_model=Token)
 def login(form: OAuth2PasswordRequestForm = Depends()):
     user = get_user_by_email(form.username)

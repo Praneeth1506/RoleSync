@@ -75,8 +75,12 @@ class CandidateDB:
         return CandidateDB.get(candidate_id)
 
     @staticmethod
-    def add_analysis(candidate_id: str, job_role_id: str, analysis_dict: dict):
+    def add_analysis(candidate_id: str, job_role_id: str, analysis_dict: dict, run_id: str = None):
         analysis_dict.setdefault("timestamp", datetime.datetime.utcnow())
+        analysis_dict["job_role_id"] = job_role_id
+
+        if run_id:
+            analysis_dict["run_id"] = run_id
 
         candidates_col.update_one(
             {"_id": ObjectId(candidate_id)},
@@ -86,6 +90,30 @@ class CandidateDB:
             }
         )
         return True
+
+    @staticmethod
+    def get_analysis_for_job_and_run(job_role_id: str, run_id: str = None):
+        results = []
+
+        query = {"analysis.job_role_id": job_role_id}
+        cursor = candidates_col.find(query)
+
+        for c in cursor:
+            for a in c.get("analysis", []):
+                if a.get("job_role_id") != job_role_id:
+                    continue
+                if run_id and a.get("run_id") != run_id:
+                    continue
+
+                results.append({
+                    "candidate_id": str(c["_id"]),
+                    "match_score": a.get("match_score"),
+                    "ats_score": a.get("ats_score"),
+                    "semantic": a.get("semantic"),
+                    "timestamp": a.get("timestamp"),
+                })
+
+        return results
 
     @staticmethod
     def get_top_n(job_role_id: str, n: int = 5):
@@ -233,3 +261,4 @@ class CandidateDB:
             upsert=True,
             return_document=True
         )
+

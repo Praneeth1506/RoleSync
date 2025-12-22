@@ -12,6 +12,7 @@ class RecruiterChatDB:
         chat_type: str = "general",   
         title: str = None,
         job_role_id: str = None,
+        run_id: str = None,
         candidates=None,
         participants=None,
     ):
@@ -25,6 +26,7 @@ class RecruiterChatDB:
             "title": title or ("General Assistant" if chat_type == "general" else "Shortlisting Chat"),
             "creator_user_id": str(creator_user_id),
             "job_role_id": job_role_id,
+            "run_id": run_id,
             "candidates": candidates,
             "messages": [],
             "participants": [str(p) for p in participants],

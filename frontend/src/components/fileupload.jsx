@@ -225,7 +225,7 @@ export default function FileUpload({
             </div>
           )}
 
-          <h2 className="fd-title">File Upload</h2>
+          <h2 className="fd-title">Resume Upload</h2>
           <p className="fd-sub"> (PDF or .docx)</p>
 
           <div

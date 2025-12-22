@@ -39,7 +39,6 @@ Return STRICT JSON ONLY in this format:
     "preferred_skills": ["skill3", "skill4"]
 }}
 """
-
     try:
         text = llm_generate(prompt)
         start, end = text.find("{"), text.rfind("}")
@@ -69,7 +68,6 @@ Return STRICT JSON ONLY:
     "preferred_skills": [...]
 }}
 """
-
     try:
         text = llm_generate(prompt)
         start, end = text.find("{"), text.rfind("}")
@@ -89,7 +87,6 @@ Based on this resume text, identify the most suitable job role (2–4 words max)
 
 Return ONLY the role name.
 """
-
     try:
         return llm_generate(prompt).strip()
     except Exception:
@@ -121,22 +118,30 @@ def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None
         detected_role = target_role or auto_detect_role(resume_text)
         skill_info = extract_skills_from_role(detected_role.lower())
 
-    ats_score = compute_ats_score(resume_text, skill_info["required_skills"])
 
-    match_result = compute_match_score(
-        {
-            "skills": parsed["skills"],
-            "projects": parsed["projects"],
-            "experience_years": parsed["experience_years"],
-            "parsed_text": parsed["raw_text"]
-        },
-        {
-            "title": detected_role,
-            "required_skills": skill_info["required_skills"],
-            "preferred_skills": skill_info["preferred_skills"],
-            "parsed": {"raw_text": jd_text or ""}
-        }
+    ats_text = resume_text
+    if not ats_text.strip():
+        ats_text = " ".join(parsed["skills"])
+
+    ats_score = compute_ats_score(
+        ats_text,
+        skill_info["required_skills"]
     )
+
+    parsed_like = {
+        "skills": parsed["skills"],
+        "experience_years": parsed["experience_years"],
+        "parsed_text": parsed["raw_text"]
+    }
+
+    job_like = {
+        "title": detected_role,
+        "required_skills": skill_info["required_skills"],
+        "preferred_skills": skill_info["preferred_skills"],
+        "parsed": {"raw_text": jd_text or ""}
+    }
+
+    match_result = compute_match_score(parsed_like, job_like)
 
     skill_gap = get_skill_gap(parsed["skills"], skill_info["required_skills"])
 
@@ -145,6 +150,7 @@ def run_self_analysis(user_id: str, jd_text: str = None, target_role: str = None
         candidate_skills=parsed["skills"],
         target_role=detected_role
     )
+
     try:
         feedback = generate_feedback(parsed, skill_info)
     except Exception as e:

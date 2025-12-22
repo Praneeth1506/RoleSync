@@ -24,7 +24,7 @@ function AppContent() {
   const location = useLocation();
 
   const hideNavbar =
-    location.pathname === "/signin" ||
+    location.pathname === "/" ||
     location.pathname === "/signup";
 
   return (
@@ -37,13 +37,13 @@ function AppContent() {
       )}
 
       <Routes>
-        <Route path="/" element={<FileUpload />} />
+        <Route path="/up" element={<FileUpload />} />
         <Route path="/upload" element={<Home />} />
         <Route path="/feedback" element={<Feedback />} />
         <Route path="/cht" element={<Chatbot />} />
         <Route path="/self" element={<Selfan />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/signin" element={<SignIn />} />
+        <Route path="/" element={<SignIn />} />
         <Route path="/resume" element={<ResumePage />} />
       </Routes>
     </>

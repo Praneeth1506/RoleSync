@@ -113,7 +113,7 @@ const Login = () => {
     return (
         <div className="auth-container">
             <div className="auth-sidebar">
-                <div className="brand-large">RecruiterAI</div>
+                <div className="brand-large">RoleSync</div>
                 <p className="brand-tagline">
                     The intelligent platform for modern hiring. 
                     Automate screening, chat with resumes, and shortlist the best talent in seconds.

@@ -47,7 +47,7 @@ export default function SignIn() {
         );
       }
 
-      navigate("/");
+      navigate("/up");
     } catch (err) {
       setError(
         err?.response?.data?.detail ||

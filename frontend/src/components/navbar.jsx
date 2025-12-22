@@ -36,7 +36,7 @@ export default function Navbar({ onAccountClick = () => {} }) {
       <div className="nav-container">
         {/* LEFT */}
         <div className="nav-left">
-          <div className="nav-logo" onClick={() => navigate("/")}>
+          <div className="nav-logo" onClick={() => navigate("/up")}>
             <span className="logo-text">RoleSync</span>
           </div>
         </div>
@@ -56,7 +56,7 @@ export default function Navbar({ onAccountClick = () => {} }) {
             <div className="nav-auth-buttons">
               <button
                 className="btn-secondary"
-                onClick={() => navigate("/signin")}
+                onClick={() => navigate("/")}
               >
                 Sign In
               </button>

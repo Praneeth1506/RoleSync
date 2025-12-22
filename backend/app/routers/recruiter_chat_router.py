@@ -67,9 +67,14 @@ def contextual_chat(chat_id: str, body: ChatMessage, current_user=Depends(requir
         raise HTTPException(404, "Chat not found")
 
     job = JobRoleDB.get(chat["job_role_id"])
-    analyses = []
-    raw_analyses = CandidateDB.get_analysis_for_job(chat["job_role_id"])
+    run_id = chat.get("run_id") 
 
+    raw_analyses = CandidateDB.get_analysis_for_job_and_run(
+        chat["job_role_id"],
+        run_id
+    )
+
+    analyses = []
     for a in raw_analyses:
         cand = CandidateDB.get(a["candidate_id"])
         if not cand:
@@ -84,10 +89,8 @@ def contextual_chat(chat_id: str, body: ChatMessage, current_user=Depends(requir
             "projects": cand.get("projects", []),
             "match_score": a.get("match_score"),
             "ats_score": a.get("ats_score"),
-            "semantic": a.get("semantic"),
             "decision": "rejected" if a.get("match_score", 0) < 45 else "shortlisted"
         })
-
 
     system_prompt = f"""
 You are a contextual hiring assistant.
@@ -95,9 +98,8 @@ You are a contextual hiring assistant.
 JOB:
 {json.dumps(_json_safe(job), indent=2)}
 
-CANDIDATES:
+CANDIDATES (CURRENT SHORTLIST RUN ONLY):
 {json.dumps(_json_safe(analyses), indent=2)}
-
 
 Answer recruiter queries precisely.
 """

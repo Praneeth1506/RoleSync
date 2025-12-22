@@ -23,7 +23,7 @@ export default function AccountSidebar({ open, onClose }) {
     window.dispatchEvent(new CustomEvent("user-updated"));
 
     onClose();
-    navigate("/signin");
+    navigate("/");
   }
 
   if (!open || !user) return null;
