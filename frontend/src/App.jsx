@@ -23,27 +23,18 @@ function AppContent() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
 
-  // Restore auth header on app start
-  useEffect(() => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      if (token) {
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      }
-    } catch (e) {
-      console.warn("Failed to restore auth header");
-    }
-  }, []);
-
-  // Close sidebar on route change
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
+  const hideNavbar =
+    location.pathname === "/signin" ||
+    location.pathname === "/signup";
 
   return (
     <>
-      <Navbar onAccountClick={() => setOpen(true)} />
-      <AccountSidebar open={open} onClose={() => setOpen(false)} />
+      {!hideNavbar && (
+        <>
+          <Navbar onAccountClick={() => setOpen(true)} />
+          <AccountSidebar open={open} onClose={() => setOpen(false)} />
+        </>
+      )}
 
       <Routes>
         <Route path="/" element={<FileUpload />} />
@@ -54,11 +45,11 @@ function AppContent() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/resume" element={<ResumePage />} />
-
       </Routes>
     </>
   );
 }
+
 
 /* -------------------- App (ROOT COMPONENT) -------------------- */
 

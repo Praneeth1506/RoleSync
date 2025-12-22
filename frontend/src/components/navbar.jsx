@@ -1,170 +1,98 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "../components-css/navbar.css";
+import { UserContext } from "../context/UserProvider";
 
 export default function Navbar({ onAccountClick = () => {} }) {
   const navigate = useNavigate();
+  const { user, setUser } = useContext(UserContext);
+
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState(false);
-  const [userName, setUserName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
-  const initials = (() => {
-    if (!userName) return "";
-    // if email, use first char before @
-    if (userName.includes("@")) return userName[0].toUpperCase();
-    return userName
-      .split(" ")
-      .map((s) => s[0] || "")
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-  })();
+  const isSignedIn = !!user;
+  const userName = user?.name || user?.email || "";
 
-  // Fetch user data on component mount
-  useEffect(() => {
-    const checkSignInStatus = async () => {
-      try {
-        // Check localStorage first
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          if (user) {
-            // prefer name, otherwise use email as display name
-            const display = user.name || user.email || "";
-            setUserName(display);
-            setIsSignedIn(true);
-            return;
-          }
-        }
+  // Avatar initials
+  const initials = userName
+    ? userName
+        .split(" ")
+        .map((s) => s[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "";
 
-        // Otherwise try to fetch from backend
-        const response = await axios.get("http://localhost:8000/api/dummy/user");
-        if (response.data && response.data.name) {
-          setUserName(response.data.name);
-          setIsSignedIn(true);
-        }
-      } catch (error) {
-        console.log("User not signed in yet");
-      }
-    };
+  // Handle click on avatar
+  const handleAvatarClick = (e) => {
+  e.stopPropagation();
+  onAccountClick();
+};
 
-    // Listen for updates from other components (sidebar save)
-    function onUserUpdated(e) {
-      // Accept event.detail when provided, otherwise read from localStorage
-      let u = e?.detail || null;
-      if (!u) {
-        try {
-          const raw = localStorage.getItem("user");
-          u = raw ? JSON.parse(raw) : null;
-        } catch (err) {
-          u = null;
-        }
-      }
-
-      if (u) {
-        const display = u.name || u.email || "";
-        setUserName(display);
-        setIsSignedIn(true);
-      }
-    }
-
-    function onUserLoggedOut() {
-      setUserName("");
-      setIsSignedIn(false);
-    }
-
-    function onStorageEvent(e) {
-      if (e.key === "user") {
-        try {
-          const u = e.newValue ? JSON.parse(e.newValue) : null;
-          if (u) {
-            setUserName(u.name || u.email || "");
-            setIsSignedIn(true);
-          } else {
-            setUserName("");
-            setIsSignedIn(false);
-          }
-        } catch (err) {
-          // ignore parse errors
-        }
-      }
-    }
-
-    window.addEventListener("user-updated", onUserUpdated);
-    window.addEventListener("user-logged-out", onUserLoggedOut);
-    window.addEventListener("storage", onStorageEvent);
-
-    checkSignInStatus();
-
-    return () => {
-      window.removeEventListener("user-updated", onUserUpdated);
-      window.removeEventListener("user-logged-out", onUserLoggedOut);
-      window.removeEventListener("storage", onStorageEvent);
-    };
-  }, []);
 
   return (
     <header className="nav">
-  <div className="nav-container">
+      <div className="nav-container">
+        {/* LEFT */}
+        <div className="nav-left">
+          <div className="nav-logo" onClick={() => navigate("/")}>
+            <span className="logo-text">RoleSync</span>
+          </div>
+        </div>
 
-    {/* LEFT */}
-    <div className="nav-left">
-      <div className="nav-logo">
-        
-        <span className="logo-text">RoleSync</span>
-      </div>
-    </div>
+        {/* CENTER */}
+        <div className="nav-center">
+          <nav className={`nav-links ${menuOpen ? "open" : ""}`}>
+            <a href="/self">Analysis</a>
+            <a href="/feedback">Feedback</a>
+            <a href="/cht">Interview Prep</a>
+          </nav>
+        </div>
 
-    {/* CENTER */}
-    <div className="nav-center">
-      <nav className={`nav-links ${menuOpen ? "open" : ""}`}>
-        <a href="/"></a>
-        <a href="/self">Analysis</a>
-        <a href="/feedback">Feedback</a>
-        <a href="/cht">Interview Prep</a>
-      </nav>
-    </div>
+        {/* RIGHT */}
+        <div className="nav-right">
+          {!isSignedIn ? (
+            <div className="nav-auth-buttons">
+              <button
+                className="btn-secondary"
+                onClick={() => navigate("/signin")}
+              >
+                Sign In
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => navigate("/signup")}
+              >
+                Sign Up
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="user-name">{userName}</span>
 
-    {/* RIGHT */}
-    <div className="nav-right">
-      {!isSignedIn ? (
-        <div className="nav-auth-buttons">
-          <button className="btn-secondary" onClick={() => navigate("/signin")}>
-            Sign In
-          </button>
-          <button className="btn-primary" onClick={() => navigate("/signup")}>
-            Sign Up
+              <button
+                className="nav-avatar-btn"
+                aria-label="Open account"
+                onClick={handleAvatarClick}
+              >
+                <span className="nav-avatar">
+                  {loadingProfile ? "..." : initials}
+                </span>
+              </button>
+            </>
+          )}
+
+          {/* Mobile toggle */}
+          <button
+            className="nav-toggle"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((s) => !s)}
+          >
+            <span className="hamburger" />
           </button>
         </div>
-      ) : (
-        <>
-          <span className="user-name">{userName}</span>
-          <button
-            className="nav-avatar-btn"
-            aria-label="Open account"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAccountClick();
-            }}
-          >
-            <span className="nav-avatar">{initials}</span>
-          </button>
-        </>
-      )}
-
-      <button
-        className="nav-toggle"
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((s) => !s)}
-      >
-        <span className="hamburger" />
-      </button>
-    </div>
-
-  </div>
-</header>
-
+      </div>
+    </header>
   );
 }

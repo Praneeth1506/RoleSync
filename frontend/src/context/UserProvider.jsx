@@ -5,31 +5,37 @@ export const UserContext = createContext(null);
 
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // Load user from localStorage on first mount
+  // Load user from localStorage
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("user");
-      if (raw) setUser(JSON.parse(raw));
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
     } catch (e) {
-      console.warn("Invalid user in storage");
-    } finally {
-      setLoading(false);
+      console.warn("Invalid stored user");
     }
   }, []);
 
-  // Persist user
+  // Listen for login/logout events
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("user");
-    }
-  }, [user]);
+    const handler = (e) => {
+      if (e.detail) {
+        setUser(e.detail);
+        localStorage.setItem("user", JSON.stringify(e.detail));
+      } else {
+        setUser(null);
+        localStorage.removeItem("user");
+      }
+    };
+
+    window.addEventListener("user-updated", handler);
+    return () => window.removeEventListener("user-updated", handler);
+  }, []);
 
   return (
-    <UserContext.Provider value={{ user, setUser, loading }}>
+    <UserContext.Provider value={{ user, setUser }}>
       {children}
     </UserContext.Provider>
   );
